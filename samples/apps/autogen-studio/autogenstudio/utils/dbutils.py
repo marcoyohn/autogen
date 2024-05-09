@@ -42,6 +42,7 @@ MESSAGES_TABLE_SQL = """
                 content TEXT,
                 function_call TEXT,
                 tool_calls TEXT,
+                tool_responses TEXT,
                 metadata TEXT,
                 timestamp DATETIME,
                 UNIQUE (user_id, root_msg_id, msg_id)
@@ -418,7 +419,7 @@ def create_message(message: Message, dbmanager: DBManager) -> List[dict]:
     :param message: The Message object containing message data
     :param dbmanager: The DBManager instance used to interact with the database
     """
-    query = "INSERT INTO messages (user_id, root_msg_id, msg_id, role, content, function_call, tool_calls, metadata, timestamp, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    query = "INSERT INTO messages (user_id, root_msg_id, msg_id, role, content, function_call, tool_calls, tool_responses, metadata, timestamp, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     args = (
         message.user_id,
         message.root_msg_id,
@@ -427,6 +428,7 @@ def create_message(message: Message, dbmanager: DBManager) -> List[dict]:
         message.content,
         json.dumps(message.function_call) if message.function_call else None, # add by ymc
         json.dumps(message.tool_calls) if message.tool_calls else None, # add by ymc
+        json.dumps(message.tool_responses) if message.tool_responses else None, # add by ymc
         message.metadata,
         message.timestamp,
         message.session_id,
@@ -455,6 +457,7 @@ def get_messages(user_id: str, session_id: str, dbmanager: DBManager) -> List[di
     for row in result:        
         row["function_call"] = json.loads(row["function_call"]) if row["function_call"] else None
         row["tool_calls"] = json.loads(row["tool_calls"]) if row["tool_calls"] else None
+        row["tool_responses"] = json.loads(row["tool_responses"]) if row["tool_responses"] else None
     return result
 
 

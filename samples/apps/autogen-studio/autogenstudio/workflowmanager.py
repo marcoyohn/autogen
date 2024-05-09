@@ -279,7 +279,8 @@ class AutoGenWorkFlowManager:
 
         return agent
 
-    def run(self, message: str, clear_history: bool = False) -> None:
+    # modify by ymc: message str修改为Union[str, Dict]
+    def run(self, message: Union[str, Dict], clear_history: bool = False) -> None:
         """
         Initiates a chat between the sender and receiver agents with an initial message
         and an option to clear the history.
