@@ -411,6 +411,10 @@ export const MarkdownView = ({
   showCode?: boolean;
 }) => {
   function processString(inputString: string): string {
+    // add by ymc: fix content null
+    if (!inputString) {
+      return "";
+    }
     inputString = inputString.replace(/\n/g, "  \n");
     const markdownPattern = /```markdown\s+([\s\S]*?)\s+```/g;
     return inputString?.replace(markdownPattern, (match, content) => content);

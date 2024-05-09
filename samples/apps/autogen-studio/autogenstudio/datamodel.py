@@ -9,7 +9,9 @@ from dataclasses import asdict, field
 class Message(object):
     user_id: str
     role: str
-    content: str
+    content: Optional[str] = None
+    function_call: Optional[Any] = None # add by ymc
+    tool_calls: Optional[Any] = None # add by ymc
     root_msg_id: Optional[str] = None
     msg_id: Optional[str] = None
     timestamp: Optional[str] = None

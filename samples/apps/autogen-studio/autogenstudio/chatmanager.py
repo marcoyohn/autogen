@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 from queue import Queue
 import time
-from typing import Any, List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple, Union
 import os
 from fastapi import WebSocket, WebSocketDisconnect
 import websockets
@@ -89,20 +89,24 @@ class AutoGenChatManager:
 
         output = self._generate_output(message_text, flow, flow_config)
 
+        # modify by ymc: 支持返回tool_calls/function_call,调整message格式
         output_message = Message(
             user_id=message.user_id,
-            root_msg_id=message.root_msg_id,
-            role="assistant",
-            content=output,
+            root_msg_id=message.root_msg_id,  
+            role=output.get("role", None),
+            content=output.get("content", None),
+            function_call=output.get("function_call", None),
+            tool_calls=output.get("tool_calls", None),
             metadata=json.dumps(metadata),
             session_id=message.session_id,
         )
 
         return output_message
 
+    # modify by ymc: 返回Dict
     def _generate_output(
         self, message_text: str, flow: AutoGenWorkFlowManager, flow_config: AgentWorkFlowConfig
-    ) -> str:
+    ) -> Dict:
         """
         Generates the output response based on the workflow configuration and agent history.
 
@@ -111,6 +115,12 @@ class AutoGenChatManager:
         :param flow_config: An instance of `AgentWorkFlowConfig`.
         :return: The output response as a string.
         """
+
+        # add by ymc: decorate for direct function call return
+        if flow.agent_history:
+            message = flow.agent_history[-1]["message"]
+            if message.get("function_call", False) or message.get("tool_calls", False):
+                return message
 
         output = ""
         if flow_config.summary_method == "last":
@@ -130,7 +140,8 @@ class AutoGenChatManager:
 
         elif flow_config.summary_method == "none":
             output = ""
-        return output
+        # modify by ymc
+        return {"role": "assistant", "content": output}
 
 
 class WebSocketConnectionManager:

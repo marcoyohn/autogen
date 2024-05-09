@@ -1,6 +1,7 @@
 import copy
 import os
-from typing import List, Optional, Union, Dict
+from typing import Any, List, Literal, Optional, Tuple, Union, Dict
+from typing_extensions import Annotated
 
 from requests import Session
 
@@ -293,11 +294,45 @@ class AutoGenWorkFlowManager:
             clear_history=clear_history,
         )
 
+# add by ymc
+def function_call_direct_reply(
+    self,
+    messages: Optional[List[Dict]] = None,
+    sender: Optional[autogen.Agent] = None,
+    config: Optional[Any] = None,
+) -> Tuple[bool, Union[Dict, None]]:
+    """
+    Generate a reply using function call.
+
+    "function_call" replaced by "tool_calls" as of [OpenAI API v1.1.0](https://github.com/openai/openai-python/releases/tag/v1.1.0)
+    See https://platform.openai.com/docs/api-reference/chat/create#chat-create-functions
+    """
+    if config is None:
+        config = self
+    if messages is None:
+        messages = self._oai_messages[sender]
+    message = messages[-1]
+    if ("function_call" in message and message["function_call"]) or ("tool_calls" in message and message["tool_calls"]):    
+        # 返回空，阻断reply;   
+        return True, None
+    return False, None
+
+CurrencySymbol = Literal["USD", "EUR"]
+def currency_calculator(
+    base_amount: Annotated[float, "Amount of currency in base_currency"],
+    base_currency: Annotated[CurrencySymbol, "Base currency"] = "USD",
+    quote_currency: Annotated[CurrencySymbol, "Quote currency"] = "EUR",
+) -> str:
+    return "mock"
 
 class ExtendedConversableAgent(autogen.ConversableAgent):
     def __init__(self, message_processor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.message_processor = message_processor
+        # add by ymc
+        self.register_reply(autogen.Agent, function_call_direct_reply)
+        if self.llm_config:
+            self.register_for_llm(name="calculator", description="A simple calculator")(currency_calculator)
 
     def receive(
         self,

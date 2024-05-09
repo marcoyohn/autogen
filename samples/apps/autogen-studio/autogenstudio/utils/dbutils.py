@@ -31,7 +31,7 @@ MODELS_TABLE_SQL = """
             )
             """
 
-
+# modify by ymc
 MESSAGES_TABLE_SQL = """
             CREATE TABLE IF NOT EXISTS messages (
                 user_id TEXT NOT NULL,
@@ -39,7 +39,9 @@ MESSAGES_TABLE_SQL = """
                 root_msg_id TEXT NOT NULL,
                 msg_id TEXT,
                 role TEXT NOT NULL,
-                content TEXT NOT NULL,
+                content TEXT,
+                function_call TEXT,
+                tool_calls TEXT,
                 metadata TEXT,
                 timestamp DATETIME,
                 UNIQUE (user_id, root_msg_id, msg_id)
@@ -416,13 +418,15 @@ def create_message(message: Message, dbmanager: DBManager) -> List[dict]:
     :param message: The Message object containing message data
     :param dbmanager: The DBManager instance used to interact with the database
     """
-    query = "INSERT INTO messages (user_id, root_msg_id, msg_id, role, content, metadata, timestamp, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    query = "INSERT INTO messages (user_id, root_msg_id, msg_id, role, content, function_call, tool_calls, metadata, timestamp, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     args = (
         message.user_id,
         message.root_msg_id,
         message.msg_id,
         message.role,
         message.content,
+        json.dumps(message.function_call) if message.function_call else None, # add by ymc
+        json.dumps(message.tool_calls) if message.tool_calls else None, # add by ymc
         message.metadata,
         message.timestamp,
         message.session_id,
@@ -447,6 +451,10 @@ def get_messages(user_id: str, session_id: str, dbmanager: DBManager) -> List[di
     result = dbmanager.query(query=query, args=args, return_json=True)
     # Sort by timestamp ascending
     result = sorted(result, key=lambda k: k["timestamp"], reverse=False)
+    # add by ymc
+    for row in result:        
+        row["function_call"] = json.loads(row["function_call"]) if row["function_call"] else None
+        row["tool_calls"] = json.loads(row["tool_calls"]) if row["tool_calls"] else None
     return result
 
 
