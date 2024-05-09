@@ -143,14 +143,14 @@ class AutoGenWorkFlowManager:
                 msg = Message(**msg)
             if msg.role == "user":
                 self.sender.send(
-                    msg.content,
+                    dict(vars(msg)), # modify by ymc: 支持function_call
                     self.receiver,
                     request_reply=False,
                     silent=True,
                 )
             elif msg.role == "assistant":
                 self.receiver.send(
-                    msg.content,
+                    dict(vars(msg)), # modify by ymc: 支持function_call
                     self.sender,
                     request_reply=False,
                     silent=True,
