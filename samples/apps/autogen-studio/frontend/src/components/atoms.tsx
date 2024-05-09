@@ -2115,7 +2115,7 @@ export const AgentRow = ({ message }: { message: any }) => {
       }
       className="m"
     >
-      // modify by ymc
+      {/* modify by ymc */}
       <MarkdownView data={message.message?.content||JSON.stringify(message.message?.function_call||message.message?.tool_calls)} className="text-sm" />
     </GroupView>
   );
