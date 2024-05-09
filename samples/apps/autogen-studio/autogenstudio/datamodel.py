@@ -33,7 +33,10 @@ class Message(SQLModel, table=True):
     )  # pylint: disable=not-callable
     user_id: Optional[str] = None
     role: str
-    content: str
+    content: Optional[str] = None # modify by ymc: can be null
+    function_call: Optional[Dict] = Field(default=None, sa_column=Column(JSON)) # add by ymc
+    tool_calls: Optional[Dict] = Field(default=None, sa_column=Column(JSON)) # add by ymc
+    tool_responses: Optional[List[Dict]] = Field(default=None, sa_column=Column(JSON)) # add by ymc: {tool_call_id, content, role}
     session_id: Optional[int] = Field(
         default=None, sa_column=Column(Integer, ForeignKey("session.id", ondelete="CASCADE"))
     )

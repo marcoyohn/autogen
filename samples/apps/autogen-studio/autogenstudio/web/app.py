@@ -81,12 +81,10 @@ app = FastAPI(lifespan=lifespan)
 # allow cross origin requests for testing on localhost:800* ports only
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:8001",
-        "http://localhost:8081",
+    allow_origins=[        
+        "none:http://localhost:8000",
     ],
+    allow_origin_regex = r"(http|https)://(.+\.seewo\.com|.+\.cvte\.com|localhost|127\.0\.0\.1)(:\d+|)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -106,6 +104,28 @@ api.mount(
 
 
 # manage websocket connections
+
+
+@api.get("/messages")
+async def get_messages(user_id: str = None, session_id: str = None):
+    if user_id is None:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    try:
+        user_history = dbutils.get_messages(
+            user_id=user_id, session_id=session_id, dbmanager=dbmanager
+        )
+
+        return {
+            "status": True,
+            "data": user_history,
+            "message": "Messages retrieved successfully",
+        }
+    except Exception as ex_error:
+        print(ex_error)
+        return {
+            "status": False,
+            "message": f"Error occurred while creating {model_class.__name__}: " + str(ex_error),
+        }
 
 
 def create_entity(model: Any, model_class: Any, filters: dict = None):
@@ -369,6 +389,7 @@ async def list_messages(user_id: str, session_id: int):
 @api.post("/sessions/{session_id}/workflow/{workflow_id}/run")
 async def run_session_workflow(message: Message, session_id: int, workflow_id: int):
     """Runs a workflow on provided message"""
+    message_dict = message.model_dump()
     try:
         user_message_history = (
             dbmanager.get(
@@ -379,6 +400,23 @@ async def run_session_workflow(message: Message, session_id: int, workflow_id: i
             if session_id is not None
             else []
         )
+        # add by ymc: filter user_history
+        filter_user_history = []
+        pre_item = message_dict
+        count = 0
+        for item in user_message_history[::-1]:
+            # 截断：超过10消息，并保证消息以user开头
+            if count > 10 and pre_item["role"] == "user":
+                break
+            if ("function_call" in item and item["function_call"]) or ("tool_calls" in item and item["tool_calls"]):  
+                #下一个消息不是tool_responses/function response时，截断
+                if not (pre_item and (("tool_responses" in pre_item and pre_item["tool_responses"]) or ("role" in pre_item and pre_item["role"] == "function"))):
+                    break            
+            filter_user_history.insert(0, item)
+            pre_item = item
+            count += 1
+        user_message_history = filter_user_history
+
         # save incoming message
         dbmanager.upsert(message)
         user_dir = os.path.join(folders["files_static_root"], "user", md5_hash(message.user_id))
