@@ -376,6 +376,10 @@ export const MarkdownView = ({
   showCode?: boolean;
 }) => {
   function processString(inputString: string): string {
+    // add by ymc: fix content null
+    if (!inputString) {
+      return "";
+    }
     inputString = inputString.replace(/\n/g, "  \n");
     const markdownPattern = /```markdown\s+([\s\S]*?)\s+```/g;
     return inputString?.replace(markdownPattern, (match, content) => content);
@@ -853,7 +857,8 @@ export const AgentRow = ({ message }: { message: any }) => {
       }
       className="m"
     >
-      <MarkdownView data={message.message?.content} className="text-sm" />
+      {/* modify by ymc */}
+      <MarkdownView data={message.message?.content||JSON.stringify(message.message?.function_call||message.message?.tool_calls)} className="text-sm" />
     </GroupView>
   );
 };

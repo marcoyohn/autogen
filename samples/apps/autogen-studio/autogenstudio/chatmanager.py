@@ -87,7 +87,8 @@ class AutoGenChatManager:
         message_text = message.content.strip()
 
         start_time = time.time()
-        workflow_manager.run(message=f"{message_text}", clear_history=False)
+        # modify by ymc: 从传str改为传
+        workflow_manager.run(message={"role":message.role, "content":message_text, "function_call":message.function_call, "tool_calls":message.tool_calls, "tool_responses": message.tool_responses}, clear_history=False)
         end_time = time.time()
 
         metadata = {
@@ -99,16 +100,20 @@ class AutoGenChatManager:
 
         output = self._generate_output(message_text, workflow_manager, workflow)
 
+        # modify by ymc: 支持返回tool_calls/function_call,调整message格式
         output_message = Message(
-            user_id=message.user_id,
-            role="assistant",
-            content=output,
+            user_id=message.user_id,            
+            role=output.get("role", None),
+            content=output.get("content", None),
+            function_call=output.get("function_call", None),
+            tool_calls=output.get("tool_calls", None),
             meta=json.dumps(metadata),
             session_id=message.session_id,
         )
 
         return output_message
 
+    # modify by ymc: 返回Dict
     def _generate_output(
         self,
         message_text: str,
@@ -123,6 +128,12 @@ class AutoGenChatManager:
         :param flow_config: An instance of `AgentWorkFlowConfig`.
         :return: The output response as a string.
         """
+
+        # add by ymc: decorate for direct function call return
+        if workflow_manager.agent_history:
+            message = workflow_manager.agent_history[-1]["message"]
+            if message.get("function_call", False) or message.get("tool_calls", False):
+                return message
 
         output = ""
         if workflow.summary_method == "last":
@@ -151,7 +162,8 @@ class AutoGenChatManager:
 
         elif workflow.summary_method == "none":
             output = ""
-        return output
+        # modify by ymc
+        return {"role": "assistant", "content": output}
 
 
 class WebSocketConnectionManager:
