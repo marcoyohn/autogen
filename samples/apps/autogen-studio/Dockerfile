@@ -8,7 +8,7 @@ RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
-    AUTOGENSTUDIO_APPDIR=/home/user/app
+    AUTOGENSTUDIO_APPDIR=/home/user/data
 
 WORKDIR $HOME/app
 
