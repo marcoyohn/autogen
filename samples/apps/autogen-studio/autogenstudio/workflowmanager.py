@@ -326,6 +326,12 @@ def currency_calculator(
 ) -> str:
     return "mock"
 
+SheEditorObjectSymbol = Literal["cube", "sphere", "cylinder", "cone", "pyramid", "capsule", "torus", "text3d", "anchorLabel", "square", "circle", "polyline", "polygon"]
+def createObject(
+    objectType: Annotated[SheEditorObjectSymbol, "3d几何体类型"],    
+) -> str:
+    return "mock:id"
+
 class ExtendedConversableAgent(autogen.ConversableAgent):
     def __init__(self, message_processor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -334,6 +340,7 @@ class ExtendedConversableAgent(autogen.ConversableAgent):
         self.register_reply(autogen.Agent, function_call_direct_reply)
         if self.llm_config:
             self.register_for_llm(name="calculator", description="A simple calculator")(currency_calculator)
+            self.register_for_llm(name="createObject", description="创建3d几何体")(createObject)
 
     def receive(
         self,
