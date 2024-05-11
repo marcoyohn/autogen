@@ -428,7 +428,7 @@ def create_message(message: Message, dbmanager: DBManager) -> List[dict]:
         message.content,
         json.dumps(message.function_call) if message.function_call else None, # add by ymc
         json.dumps(message.tool_calls) if message.tool_calls else None, # add by ymc
-        json.dumps(message.tool_responses) if message.tool_responses else None, # add by ymc
+        json.dumps(message.tool_responses, default=lambda obj: obj.__dict__) if message.tool_responses else None, # add by ymc
         message.metadata,
         message.timestamp,
         message.session_id,
