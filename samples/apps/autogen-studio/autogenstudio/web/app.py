@@ -108,6 +108,22 @@ async def add_message(req: DBWebRequestModel):
     user_history = dbutils.get_messages(
         user_id=message.user_id, session_id=req.message.session_id, dbmanager=dbmanager
     )
+    # add by ymc: filter user_history
+    filter_user_history = []
+    pre_item = None
+    count = 0
+    for item in user_history[::-1]:
+        # 截断：超过10消息，并保证消息以user开头
+        if count > 10 and pre_item["role"] == "user":
+            break
+        if ("function_call" in item and item["function_call"]) or ("tool_calls" in item and item["tool_calls"]):  
+            #下一个消息不是tool_responses/function response时，截断
+            if not (pre_item and (("tool_responses" in pre_item and pre_item["tool_responses"]) or ("role" in pre_item and pre_item["role"] == "function"))):
+                break            
+        filter_user_history.insert(0, item)
+        pre_item = item
+        count += 1
+    user_history = filter_user_history
 
     # save incoming message to db
     dbutils.create_message(message=message, dbmanager=dbmanager)
@@ -131,6 +147,7 @@ async def add_message(req: DBWebRequestModel):
             "status": True,
             "message": "Message processed successfully",
             "data": messages,
+            # "data": [messages[-1]], # modify by ymc: last message, agentstudio charts只显示了最后1条
             # "metadata": json.loads(response_message.metadata),
         }
         return response
