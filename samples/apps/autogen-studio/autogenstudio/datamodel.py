@@ -4,20 +4,6 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from pydantic.dataclasses import dataclass
 from dataclasses import asdict, field
 
-# add by ymc
-@dataclass
-class ToolResponse(object):
-    tool_call_id: str
-    content: str
-    role: Optional[str] = None
-
-    def __post_init__(self):
-        if self.role is None:
-            self.role = "tool"        
-
-    def dict(self):
-        result = asdict(self)
-        return result
 
 
 @dataclass
@@ -27,7 +13,7 @@ class Message(object):
     content: Optional[str] = None
     function_call: Optional[Any] = None # add by ymc
     tool_calls: Optional[Any] = None # add by ymc
-    tool_responses: Optional[List[ToolResponse]] = None # add by ymc
+    tool_responses: Optional[List[Any]] = None # add by ymc: {tool_call_id, content, role}
     root_msg_id: Optional[str] = None
     msg_id: Optional[str] = None
     timestamp: Optional[str] = None
