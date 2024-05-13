@@ -141,7 +141,7 @@ class AutoGenWorkFlowManager:
         for msg in history:
             if isinstance(msg, dict):
                 msg = Message(**msg)
-            if msg.role == "user":
+            if msg.role == "user" or msg.role == "tool": # modify by ymc: 支持tool repsonses
                 self.sender.send(
                     dict(vars(msg)), # modify by ymc: 支持function_call
                     self.receiver,

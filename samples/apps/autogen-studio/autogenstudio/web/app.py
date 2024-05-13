@@ -104,13 +104,14 @@ dbmanager = DBManager(path=db_path)  # manage database operations
 
 @api.post("/messages")
 async def add_message(req: DBWebRequestModel):
-    message = Message(**req.message.dict())
+    message_dict = req.message.dict()
+    message = Message(**message_dict)
     user_history = dbutils.get_messages(
         user_id=message.user_id, session_id=req.message.session_id, dbmanager=dbmanager
     )
     # add by ymc: filter user_history
     filter_user_history = []
-    pre_item = None
+    pre_item = message_dict
     count = 0
     for item in user_history[::-1]:
         # 截断：超过10消息，并保证消息以user开头
