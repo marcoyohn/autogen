@@ -68,9 +68,13 @@ app = FastAPI(lifespan=lifespan)
 # allow cross origin requests for testing on localhost:800* ports only
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",        
+    allow_origins=[        
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:8001",
+        "http://localhost:8081",
     ],
+    allow_origin_regex = r".+\.(seewo|cvte)\.com\b"s,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
