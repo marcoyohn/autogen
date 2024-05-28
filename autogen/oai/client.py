@@ -175,12 +175,19 @@ class OpenAIClient:
             # Set the terminal text color to green
             iostream.print("\033[32m", end="")
 
+            # add by yangmc: streaming
+            stream_callback = params["stream_callback"]
+            if stream_callback:
+                stream_callback({"event": "message_start"})
+
             # Prepare for potential function call
             full_function_call: Optional[Dict[str, Any]] = None
             full_tool_calls: Optional[List[Optional[Dict[str, Any]]]] = None
 
             # Send the chat completion request to OpenAI's API and process the response in chunks
-            for chunk in completions.create(**params):
+            # add by yangmc: streaming copy_params , stream_callback attr not allow
+            copy_params = {k:params[k] for k in params if k != 'stream_callback'}
+            for chunk in completions.create(**copy_params):
                 if chunk.choices:
                     for choice in chunk.choices:
                         content = choice.delta.content
@@ -228,12 +235,19 @@ class OpenAIClient:
                             iostream.print(content, end="", flush=True)
                             response_contents[choice.index] += content
                             completion_tokens += 1
+                            # add by yangmc: streaming
+                            if stream_callback:
+                                stream_callback({"event": "message", "answer": content})
                         else:
                             # iostream.print()
                             pass
 
             # Reset the terminal text color
             iostream.print("\033[0m\n")
+
+            # add by yangmc: streaming
+            if stream_callback:
+                stream_callback({"event": "message_end"})
 
             # Prepare the final ChatCompletion object based on the accumulated data
             model = chunk.model.replace("gpt-35", "gpt-3.5")  # hack for Azure API

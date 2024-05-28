@@ -426,7 +426,9 @@ async def process_socket_message(data: dict, websocket: WebSocket, client_id: st
             "data": response,
             "connection_id": client_id,
         }
-        await websocket_manager.send_message(response_socket_message, websocket)
+        # modify by ymc: streaming , fix out of order
+        message_queue.put_nowait(response_socket_message)
+        # await websocket_manager.send_message(response_socket_message, websocket)
 
 
 @api.websocket("/ws/{client_id}")

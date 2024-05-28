@@ -231,11 +231,13 @@ class WorkflowManager:
                 agent = ExtendedConversableAgent(
                     **self._serialize_agent(agent),
                     message_processor=self.process_message,
+                    stream_callback=self.stream_callback, # add by ymc: streaming
                 )
             elif agent.type == "userproxy":
                 agent = ExtendedConversableAgent(
                     **self._serialize_agent(agent),
                     message_processor=self.process_message,
+                    stream_callback=self.stream_callback, # add by ymc: streaming
                 )
             else:
                 raise ValueError(f"Unknown agent type: {agent.type}")
@@ -255,10 +257,29 @@ class WorkflowManager:
             message=message,
             clear_history=clear_history,
         )
+    
+    # add by ymc: streaming
+    def stream_callback(
+        self,
+        message_payload: Dict,
+    ) -> None:
+        if self.send_message_function:
+            socket_msg = SocketMessage(
+                type="llm_stream_message",
+                data=message_payload,
+                connection_id=self.connection_id,
+            )
+            self.send_message_function(socket_msg.dict())
 
 
 class ExtendedConversableAgent(autogen.ConversableAgent):
-    def __init__(self, message_processor=None, *args, **kwargs):
+    def __init__(self, message_processor=None, stream_callback=None, *args, **kwargs):
+        # add by ymc: streaming, current just set stream default to True
+        llm_config = kwargs.get('llm_config', None)
+        if llm_config:
+            llm_config['stream'] = True            
+            # 不能使用stream_callback，会报deepcopy错误
+            llm_config['stream_callback'] = lambda *args, **kwargs:stream_callback(*args,  **kwargs)         
         super().__init__(*args, **kwargs)
         self.message_processor = message_processor
 
