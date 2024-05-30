@@ -84,11 +84,20 @@ class AutoGenChatManager:
 
         workflow = Workflow.model_validate(workflow)
 
-        message_text = message.content.strip()
-
+        # modify by ymc: multimodal
+        message_text = ""
+        if isinstance(message.content, str):
+            message.content = message.content.strip()
+            message_text = message.content
+        elif isinstance(message.content, List):
+            for item in message.content:
+                if item['type'] == 'text':
+                    item['text'] = item['text'].strip()
+                    message_text = message_text + item['text'] + "\n"              
+            
         start_time = time.time()
         # modify by ymc: 从传str改为传
-        workflow_manager.run(message={"role":message.role, "content":message_text, "function_call":message.function_call, "tool_calls":message.tool_calls, "tool_responses": message.tool_responses}, clear_history=False)
+        workflow_manager.run(message={"role":message.role, "content":message.content, "function_call":message.function_call, "tool_calls":message.tool_calls, "tool_responses": message.tool_responses}, clear_history=False)
         end_time = time.time()
 
         metadata = {
