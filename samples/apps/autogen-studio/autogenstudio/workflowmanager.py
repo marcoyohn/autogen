@@ -1,8 +1,13 @@
 from datetime import datetime
 import os
-from typing import Any, List, Optional, Tuple, Union, Dict
+from os import path
+from typing import Any, Callable, List, Optional, Tuple, Type, Union, Dict
 
 import autogen
+from autogen.agentchat.agent import LLMAgent
+from autogen.agentchat.chat import ChatResult
+from autogen.agentchat.conversable_agent import ConversableAgent
+from autogen.cache.abstract_cache_base import AbstractCache
 
 from .datamodel import (
     Agent,
@@ -10,7 +15,7 @@ from .datamodel import (
     Message,
     SocketMessage,
 )
-from .utils import clear_folder, get_skills_from_prompt, load_code_execution_config, sanitize_model
+from .utils import clear_folder, get_skills_from_prompt, load_code_execution_config, sanitize_model, load_plugins_module
 
 
 class WorkflowManager:
@@ -238,6 +243,15 @@ class WorkflowManager:
                     **self._serialize_agent(agent),
                     message_processor=self.process_message,
                 )
+            # add by ymc
+            elif agent.type == "custom":
+                agent_type_names = agent.agent_type_name.split(".")
+                agent_type = load_plugins_module(path.dirname(path.abspath(__file__)) + "/plugins", agent_type_names[0], agent_type_names[1])
+                delegate_agent = agent_type(**self._serialize_agent(agent))
+                agent = ExtendedProxyAgent(
+                    delegate_agent=delegate_agent,
+                    message_processor=self.process_message,
+                )
             else:
                 raise ValueError(f"Unknown agent type: {agent.type}")
             return agent
@@ -320,3 +334,170 @@ class ExtendedGroupChatManager(autogen.GroupChatManager):
         if self.message_processor:
             self.message_processor(sender, self, message, request_reply, silent, sender_type="groupchat")
         super().receive(message, sender, request_reply, silent)
+
+# add by ymc
+class ExtendedProxyAgent(LLMAgent):
+    def __init__(self, delegate_agent: autogen.ConversableAgent, message_processor=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.delegate_agent = delegate_agent
+        self.message_processor = message_processor
+        
+
+    def register_reply(
+        self,
+        trigger: Union[Type[Agent], str, Agent, Callable[[Agent], bool], List],
+        reply_func: Callable,
+        position: int = 0,
+        config: Optional[Any] = None,
+        reset_config: Optional[Callable] = None,
+        *,
+        ignore_async_in_sync_chat: bool = False,
+        remove_other_reply_funcs: bool = False,
+    ):
+        return self.delegate_agent.register_reply(trigger, reply_func, position, config, reset_config,ignore_async_in_sync_chat, remove_other_reply_funcs)
+    
+    def replace_reply_func(self, old_reply_func: Callable, new_reply_func: Callable):
+        return self.delegate_agent.replace_reply_func(old_reply_func, new_reply_func)
+
+    def register_nested_chats(
+        self,
+        chat_queue: List[Dict[str, Any]],
+        trigger: Union[Type[Agent], str, Agent, Callable[[Agent], bool], List],
+        reply_func_from_nested_chats: Union[str, Callable] = "summary_from_nested_chats",
+        position: int = 2,
+        **kwargs,
+    ) -> None:
+        return self.delegate_agent.register_nested_chats(chat_queue, trigger, reply_func_from_nested_chats, position, **kwargs)
+
+    def send(
+        self,
+        message: Union[Dict, str],
+        recipient: Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ):
+        return self.delegate_agent.send(message, recipient, request_reply, silent)    
+
+    async def a_send(
+        self,
+        message: Union[Dict, str],
+        recipient: Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ):
+        return await self.delegate_agent.a_send(message, recipient, request_reply, silent)
+
+    def receive(
+        self,
+        message: Union[Dict, str],
+        sender: autogen.Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ):
+        if self.message_processor:
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+        return self.delegate_agent.receive(message, sender, request_reply, silent)
+
+    async def a_receive(
+        self,
+        message: Union[Dict, str],
+        sender: Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ):
+        return await self.delegate_agent.a_receive(message, sender, request_reply, silent)
+
+    def initiate_chat(
+        self,
+        recipient: "ConversableAgent",
+        clear_history: bool = True,
+        silent: Optional[bool] = False,
+        cache: Optional[AbstractCache] = None,
+        max_turns: Optional[int] = None,
+        summary_method: Optional[Union[str, Callable]] = "last_msg",
+        summary_args: Optional[dict] = {},
+        message: Optional[Union[Dict, str, Callable]] = None,
+        **kwargs,
+    ) -> ChatResult:
+        return self.delegate_agent.initiate_chat(recipient, clear_history, silent, cache, max_turns, summary_method, summary_args, message, **kwargs)
+
+    async def a_initiate_chat(
+        self,
+        recipient: "ConversableAgent",
+        clear_history: bool = True,
+        silent: Optional[bool] = False,
+        cache: Optional[AbstractCache] = None,
+        max_turns: Optional[int] = None,
+        summary_method: Optional[Union[str, Callable]] = "last_msg",
+        summary_args: Optional[dict] = {},
+        message: Optional[Union[str, Callable]] = None,
+        **kwargs,
+    ) -> ChatResult:
+        return await self.delegate_agent.a_initiate_chat(recipient, clear_history, silent, cache, max_turns, summary_method, summary_args, message, **kwargs)
+    
+    @property
+    def name(self) -> str:
+        return self.delegate_agent.name
+
+    @property
+    def description(self) -> str:
+        return self.delegate_agent.description
+
+    def generate_reply(
+        self,
+        messages: Optional[List[Dict[str, Any]]] = None,
+        sender: Optional["Agent"] = None,
+        **kwargs: Any,
+    ) -> Union[str, Dict[str, Any], None]:
+        return self.delegate_agent.generate_reply(messages, sender, **kwargs)
+
+    async def a_generate_reply(
+        self,
+        messages: Optional[List[Dict[str, Any]]] = None,
+        sender: Optional["Agent"] = None,
+        **kwargs: Any,
+    ) -> Union[str, Dict[str, Any], None]:
+        return await self.delegate_agent.a_generate_reply(messages, sender, **kwargs)
+
+    @property
+    def system_message(self) -> str:
+        return self.delegate_agent.system_message
+
+    def update_system_message(self, system_message: str) -> None:
+        return self.delegate_agent.update_system_message(system_message)
+    
+    def _raise_exception_on_async_reply_functions(self) -> None:
+        return self.delegate_agent._raise_exception_on_async_reply_functions()
+    
+    def _prepare_chat(
+        self,
+        recipient: "ConversableAgent",
+        clear_history: bool,
+        prepare_recipient: bool = True,
+        reply_at_receive: bool = True,
+    ) -> None:
+        return self.delegate_agent._prepare_chat(recipient, clear_history, prepare_recipient, reply_at_receive)
+    
+    @property
+    def previous_cache(self):
+        return self.delegate_agent.previous_cache
+    
+    @previous_cache.setter
+    def previous_cache(self, value):
+        self.delegate_agent.previous_cache = value
+    
+    @property
+    def client_cache(self):
+        return self.delegate_agent.client_cache
+    
+    @client_cache.setter
+    def client_cache(self, value):
+        self.delegate_agent.client_cache = value
+
+    @property
+    def last_message(self):
+        return self.delegate_agent.last_message
+    
+    @last_message.setter
+    def last_message(self, value):
+        self.delegate_agent.last_message = value

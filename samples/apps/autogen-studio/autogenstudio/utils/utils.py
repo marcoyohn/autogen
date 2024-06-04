@@ -1,10 +1,12 @@
 import base64
 import hashlib
+import importlib
 import os
 import re
 import shutil
 from datetime import datetime
 from pathlib import Path
+import sys
 from typing import Any, Dict, List, Tuple, Union
 
 from dotenv import load_dotenv
@@ -462,3 +464,15 @@ def summarize_chat_history(task: str, messages: List[Dict[str, str]], client: Mo
     ]
     response = client.create(messages=summarization_prompt, cache_seed=None)
     return response.choices[0].message.content
+
+# add by ymc
+def load_plugins_module(base_path, module_name, type_name):
+    module_full_name = "autogenstudio_plugins_" + module_name + "_" + type_name
+    module = sys.modules.get(module_full_name, None)
+    if module is None:
+        spec = importlib.util.spec_from_file_location(module_full_name, base_path + "/" + module_name + "/" + type_name + ".py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_full_name] = module
+        spec.loader.exec_module(module)
+    
+    return getattr(module, type_name)
