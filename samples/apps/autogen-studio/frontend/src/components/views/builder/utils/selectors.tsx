@@ -326,6 +326,12 @@ export const AgentTypeSelector = ({
       description: <>Plan and generate code to solve user tasks</>,
       icon: <CodeBracketSquareIcon className={iconClass} />,
     },
+    {
+      label: "Custom Agent: SheEditorAgent",
+      value: "she_editor.SheEditorAgent",
+      description: <>Plan and generate code to solve user tasks</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
   ];
   const [selectedAgentType, setSelectedAgentType] = React.useState<
     string | null
