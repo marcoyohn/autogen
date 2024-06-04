@@ -319,6 +319,13 @@ export const AgentTypeSelector = ({
       description: <>Manage group chat interactions</>,
       icon: <RectangleGroupIcon className={iconClass} />,
     },
+    // add by ymc: custom agent
+    {
+      label: "Custom Agent: ExamPreTreatAgent",
+      value: "en_exam.ExamPreTreatAgent",
+      description: <>Plan and generate code to solve user tasks</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
   ];
   const [selectedAgentType, setSelectedAgentType] = React.useState<
     string | null

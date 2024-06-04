@@ -353,7 +353,12 @@ export const sampleAgentConfig = (agent_type: string = "assistant") => {
   } else if (agent_type === "groupchat") {
     return groupChatFlowSpec;
   } else {
-    return assistantFlowSpec;
+    // modify by ymc: 默认返回agent type
+    return {
+      type: "custom",
+      agent_type_name: agent_type,
+      config: assistantConfig,
+    };
   }
 };
 

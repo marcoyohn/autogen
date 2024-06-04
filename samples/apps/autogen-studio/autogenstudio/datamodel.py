@@ -161,6 +161,8 @@ class AgentType(str, Enum):
     assistant = "assistant"
     userproxy = "userproxy"
     groupchat = "groupchat"
+    # add by ymc
+    custom = "custom"
 
 
 class WorkflowAgentType(str, Enum):
@@ -198,6 +200,7 @@ class Agent(SQLModel, table=True):
     )  # pylint: disable=not-callable
     user_id: Optional[str] = None
     type: AgentType = Field(default=AgentType.assistant, sa_column=Column(SqlEnum(AgentType)))
+    agent_type_name: Optional[str] = None # add by ymc: when type = custome, this assign the agent type name
     config: AgentConfig = Field(default_factory=AgentConfig, sa_column=Column(JSON))
     skills: List[Skill] = Relationship(back_populates="agents", link_model=AgentSkillLink)
     models: List[Model] = Relationship(back_populates="agents", link_model=AgentModelLink)
