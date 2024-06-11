@@ -1,7 +1,8 @@
 from datetime import datetime
+import inspect
 import os
 from os import path
-from typing import Any, Callable, List, Optional, Tuple, Type, Union, Dict
+from typing import Any, Callable, List, Optional, Protocol, Tuple, Type, Union, Dict, runtime_checkable
 
 import autogen
 from autogen.agentchat.agent import LLMAgent
@@ -247,7 +248,10 @@ class WorkflowManager:
             elif agent.type == "custom":
                 agent_type_names = agent.agent_type_name.split(".")
                 agent_type = load_plugins_module(path.dirname(path.abspath(__file__)) + "/plugins", agent_type_names[0], agent_type_names[1])
-                delegate_agent = agent_type(**self._serialize_agent(agent))
+                if "message_processor" in inspect.signature(agent_type.__init__).parameters:
+                    delegate_agent = agent_type(**self._serialize_agent(agent), message_processor=self.process_message)
+                else:
+                    delegate_agent = agent_type(**self._serialize_agent(agent))
                 agent = ExtendedProxyAgent(
                     delegate_agent=delegate_agent,
                     message_processor=self.process_message,
