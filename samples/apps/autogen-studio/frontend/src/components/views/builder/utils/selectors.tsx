@@ -321,14 +321,20 @@ export const AgentTypeSelector = ({
     },
     // add by ymc: custom agent
     {
+      label: "Custom Agent: SheEditorAgent",
+      value: "she_editor.SheEditorAgent",
+      description: <>Plan and generate code to solve user tasks</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
+    {
       label: "Custom Agent: ExamPreTreatAgent",
       value: "en_exam.ExamPreTreatAgent",
       description: <>Plan and generate code to solve user tasks</>,
       icon: <CodeBracketSquareIcon className={iconClass} />,
     },
     {
-      label: "Custom Agent: SheEditorAgent",
-      value: "she_editor.SheEditorAgent",
+      label: "Custom Agent: ExamGeometryCreateAgent",
+      value: "en_exam.ExamGeometryCreateAgent",
       description: <>Plan and generate code to solve user tasks</>,
       icon: <CodeBracketSquareIcon className={iconClass} />,
     },
