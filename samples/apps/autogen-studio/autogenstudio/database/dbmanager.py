@@ -3,7 +3,7 @@ from typing import Optional
 
 from loguru import logger
 from sqlalchemy import exc
-from sqlmodel import Session, SQLModel, and_, create_engine, select
+from sqlmodel import Session, SQLModel, and_, create_engine, select, QueuePool
 
 from ..datamodel import (
     Agent,
@@ -26,7 +26,14 @@ class DBManager:
 
     def __init__(self, engine_uri: str):
         connection_args = {"check_same_thread": True} if "sqlite" in engine_uri else {}
-        self.engine = create_engine(engine_uri, connect_args=connection_args)
+        self.engine = create_engine(engine_uri, 
+                                    connect_args=connection_args,
+                                    pool_size=5,
+                                    max_overflow=100,
+                                    pool_timeout=30,
+                                    pool_pre_ping=True,
+                                    pool_recycle=3600,
+                                    poolclass=QueuePool)
         # run_migration(engine_uri=engine_uri)
 
     def create_db_and_tables(self):
