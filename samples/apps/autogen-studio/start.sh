@@ -1,1 +1,1 @@
-pip3 install -U gunicorn autogenstudio mysql-connector-python Pillow && export AUTOGENSTUDIO_APPDIR=/app/autogenstudio-data && gunicorn -w 5 --timeout 12600 -k uvicorn.workers.UvicornWorker autogenstudio.web.app:app --bind "0.0.0.0:8081"
+pip3 install -U gunicorn pyautogen && pip3 install -e . && export AUTOGENSTUDIO_APPDIR=/app/autogenstudio-data && gunicorn -w 5 --timeout 12600 -k uvicorn.workers.UvicornWorker autogenstudio.web.app:app --bind "0.0.0.0:8081"
