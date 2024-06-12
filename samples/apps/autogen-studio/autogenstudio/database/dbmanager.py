@@ -115,7 +115,7 @@ class DBManager:
             session.rollback()
             status = False
             status_message = f"Error while fetching  {model_class.__name__}"
-            logger.error("Error while getting %s: %s", model_class.__name__, e)
+            logger.error(f"Error while getting {model_class.__name__}: {e}")
 
         response: Response = Response(
             message=status_message,
