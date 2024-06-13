@@ -104,8 +104,14 @@ class DBManager:
             if filters:
                 conditions = [getattr(model_class, col) == value for col, value in filters.items()]
                 statement = select(model_class).where(and_(*conditions))
-
-                if hasattr(model_class, "created_at") and order:
+                # modify by ymc: Error while getting Message: (mysql.connector.errors.DatabaseError) 1038 (HY001): Out of sort memory, consider increasing server sort buffer size
+                # 优先使用id排序 
+                if hasattr(model_class, "id") and order:
+                    if order == "desc":
+                        statement = statement.order_by(model_class.id.desc())
+                    else:
+                        statement = statement.order_by(model_class.id.asc())
+                elif hasattr(model_class, "created_at") and order:
                     if order == "desc":
                         statement = statement.order_by(model_class.created_at.desc())
                     else:
