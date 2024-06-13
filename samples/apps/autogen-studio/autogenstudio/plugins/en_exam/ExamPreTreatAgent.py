@@ -1,6 +1,7 @@
 import copy
 from io import BytesIO
 import json
+import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import autogen
@@ -50,16 +51,17 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
 		# } 
 
         # call automatic box agent
-        # TODO 测试写死message 消息 https://cos-public.seewo.com/public_appId-dev/ymc_jiheti_1.png
-        # message = messages[-1]        
-        message = {
-                        "role": "user",
-                        "content": [                            
-                            {
-                                "type": "image_url", "image_url": {"url": "https://cos-public.seewo.com/public_appId-dev/ymc_jiheti_1.png"}
-                            }
-                        ]
-                    }
+        message = messages[-1]    
+        if "mock_enabled" in os.environ and os.environ["mock_enabled"] == "1" and (isinstance(message["content"], str) or len([item for item in message["content"] if item["type"] == "image_url"]) == 0):
+            # TODO 去掉这逻辑 测试写死message 消息 https://cos-public.seewo.com/public_appId-dev/ymc_jiheti_1.png
+            message = {
+                            "role": "user",
+                            "content": [                            
+                                {
+                                    "type": "image_url", "image_url": {"url": "https://cos-public.seewo.com/public_appId-dev/ymc_jiheti_1.png"}
+                                }
+                            ]
+                        }
         images: List[Dict] = [item for item in message["content"] if item["type"] == "image_url"]
         images_len = len(images)
         if images_len == 0:
