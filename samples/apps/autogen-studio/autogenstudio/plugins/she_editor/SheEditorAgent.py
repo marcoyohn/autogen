@@ -72,10 +72,22 @@ def updateComponent(
     return "mock:id"
 
 class SheEditorAgent(autogen.ConversableAgent):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, message_processor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.message_processor = message_processor
         self.register_reply(autogen.Agent, function_call_direct_reply)
         if self.llm_config:
             self.register_for_llm(name="createObject", description="创建3d几何体")(createObject)
             self.register_for_llm(name="updateComponent", description="更新3d几何体属性。规则：1.当遇到颜色属性时，需要转换成#RGB格式")(updateComponent)
+        
+    def receive(
+        self,
+        message: Union[Dict, str],
+        sender: autogen.Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ):
+        if self.message_processor:
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+        super().receive(message, sender, request_reply, silent)
 
