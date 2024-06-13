@@ -22,7 +22,7 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
     def __init__(self, message_processor=None, llm_config=None, *args, **kwargs):
         super().__init__(llm_config=llm_config, *args, **kwargs)
         self.message_processor = message_processor    
-        self.register_reply(Agent, ExamPreTreatAgent._generate_exam_pre_treat_reply)
+        self.register_reply(Agent, ExamPreTreatAgent._generate_exam_pre_treat_reply, position=2)
         # init nested agent    
         self.context = {}
         self.automatic_box_agent = ExamAutomaticBoxAgent(name="en_exam_automatic_box_assistant", message_processor=message_processor, context=self.context)
@@ -98,3 +98,14 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
 
         # return sumary message
         return True, json.dumps(automatic_box_result, ensure_ascii=False)
+    
+    def receive(
+        self,
+        message: Union[Dict, str],
+        sender: autogen.Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ):
+        if self.message_processor:
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+        super().receive(message, sender, request_reply, silent)
