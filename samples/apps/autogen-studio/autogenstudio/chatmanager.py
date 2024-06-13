@@ -116,7 +116,7 @@ class AutoGenChatManager:
             content=output.get("content", None),
             function_call=output.get("function_call", None),
             tool_calls=output.get("tool_calls", None),
-            meta=json.dumps(metadata),
+            meta=json.dumps(metadata, ensure_ascii=False),
             session_id=message.session_id,
         )
 
