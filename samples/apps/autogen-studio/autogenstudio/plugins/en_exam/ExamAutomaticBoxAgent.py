@@ -38,7 +38,7 @@ class ExamAutomaticBoxAgent(autogen.AssistantAgent):
         result = json.loads(result)
         if result["code"] != 20000:
             raise RuntimeError('图片题目分割失败')        
-        automatic_box_items = [{"item_position": item["item_position"], "item_position_show": item["item_position_show"]} for item in result["data"]["data"]]
+        automatic_box_items = [{"item_index": index+1, "item_position": item["item_position"], "item_position_show": item["item_position_show"]} for index, item in enumerate(result["data"]["data"])]
         
         return True, json.dumps({
             "automatic_box_items": automatic_box_items
