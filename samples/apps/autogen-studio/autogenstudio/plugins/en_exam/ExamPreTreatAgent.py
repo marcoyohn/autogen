@@ -76,6 +76,7 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
         automatic_box_agent_result = self.initiate_chat(self.automatic_box_agent, message={"role": "user", "content": [images[0]]}, max_turns=1)
         # parse automatic box to image        
         automatic_box_result = json.loads(automatic_box_agent_result.summary)
+        automatic_box_result["msg_type"] = "agent_response"
         self.context["result"] = automatic_box_result
         for box_item in automatic_box_result["automatic_box_items"]:
             positions = box_item["item_position_show"]
