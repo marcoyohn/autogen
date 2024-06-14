@@ -93,11 +93,9 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
                         ]
                     }
             # call exam solve agent            
-            solve_agent_result = self.initiate_chat(self.solve_agent, message=message, max_turns=1)
-            box_item["solve"] = solve_agent_result.summary
+            self.initiate_chat(self.solve_agent, message=message, max_turns=1)
             # call exam math expr agent
-            math_expr_agent_result = self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)
-            box_item["math_expr"] = math_expr_agent_result.summary
+            self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)
 
         # return sumary message
         return True, json.dumps(automatic_box_result, ensure_ascii=False)
