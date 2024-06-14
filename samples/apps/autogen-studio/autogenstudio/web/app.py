@@ -19,6 +19,12 @@ from ..datamodel import Agent, Message, Model, Response, Session, Skill, Workflo
 from ..utils import check_and_cast_datetime_fields, init_app_folders, md5_hash, test_model
 from ..version import VERSION
 
+from fastapi_auth_middleware import AuthMiddleware
+from ..utils.uc import *
+from starlette.authentication import requires
+from starlette.requests import Request
+
+
 managers = {"chat": None}  # manage calls to autogen
 # Create thread-safe queue for messages between api thread and autogen threads
 message_queue = queue.Queue()
@@ -92,6 +98,7 @@ app.add_middleware(
 
 
 api = FastAPI(root_path="/api")
+api.add_middleware(AuthMiddleware, verify_header=verify_authorization_header)
 # mount an api route such that the main route serves the ui and the /api
 app.mount("/api", api)
 
@@ -165,16 +172,17 @@ async def list_skills(user_id: str):
     filters = {"user_id": user_id}
     return list_entity(Skill, filters=filters)
 
-
 @api.post("/skills")
-async def create_skill(skill: Skill):
+@requires("admin") 
+async def create_skill(skill: Skill, request: Request):
     """Create a new skill"""
     filters = {"user_id": skill.user_id}
     return create_entity(skill, Skill, filters=filters)
 
 
 @api.delete("/skills/delete")
-async def delete_skill(skill_id: int, user_id: str):
+@requires("admin") 
+async def delete_skill(skill_id: int, user_id: str, request: Request):
     """Delete a skill"""
     filters = {"id": skill_id, "user_id": user_id}
     return delete_entity(Skill, filters=filters)
@@ -188,7 +196,8 @@ async def list_models(user_id: str):
 
 
 @api.post("/models")
-async def create_model(model: Model):
+@requires("admin") 
+async def create_model(model: Model, request: Request):
     """Create a new model"""
     return create_entity(model, Model)
 
@@ -211,7 +220,8 @@ async def test_model_endpoint(model: Model):
 
 
 @api.delete("/models/delete")
-async def delete_model(model_id: int, user_id: str):
+@requires("admin") 
+async def delete_model(model_id: int, user_id: str, request: Request):
     """Delete a model"""
     filters = {"id": model_id, "user_id": user_id}
     return delete_entity(Model, filters=filters)
@@ -225,26 +235,30 @@ async def list_agents(user_id: str):
 
 
 @api.post("/agents")
-async def create_agent(agent: Agent):
+@requires("admin") 
+async def create_agent(agent: Agent, request: Request):
     """Create a new agent"""
     return create_entity(agent, Agent)
 
 
 @api.delete("/agents/delete")
-async def delete_agent(agent_id: int, user_id: str):
+@requires("admin") 
+async def delete_agent(agent_id: int, user_id: str, request: Request):
     """Delete an agent"""
     filters = {"id": agent_id, "user_id": user_id}
     return delete_entity(Agent, filters=filters)
 
 
 @api.post("/agents/link/model/{agent_id}/{model_id}")
-async def link_agent_model(agent_id: int, model_id: int):
+@requires("admin") 
+async def link_agent_model(agent_id: int, model_id: int, request: Request):
     """Link a model to an agent"""
     return dbmanager.link(link_type="agent_model", primary_id=agent_id, secondary_id=model_id)
 
 
 @api.delete("/agents/link/model/{agent_id}/{model_id}")
-async def unlink_agent_model(agent_id: int, model_id: int):
+@requires("admin") 
+async def unlink_agent_model(agent_id: int, model_id: int, request: Request):
     """Unlink a model from an agent"""
     return dbmanager.unlink(link_type="agent_model", primary_id=agent_id, secondary_id=model_id)
 
@@ -256,13 +270,15 @@ async def get_agent_models(agent_id: int):
 
 
 @api.post("/agents/link/skill/{agent_id}/{skill_id}")
-async def link_agent_skill(agent_id: int, skill_id: int):
+@requires("admin") 
+async def link_agent_skill(agent_id: int, skill_id: int, request: Request):
     """Link an a skill to an agent"""
     return dbmanager.link(link_type="agent_skill", primary_id=agent_id, secondary_id=skill_id)
 
 
 @api.delete("/agents/link/skill/{agent_id}/{skill_id}")
-async def unlink_agent_skill(agent_id: int, skill_id: int):
+@requires("admin") 
+async def unlink_agent_skill(agent_id: int, skill_id: int, request: Request):
     """Unlink an a skill from an agent"""
     return dbmanager.unlink(link_type="agent_skill", primary_id=agent_id, secondary_id=skill_id)
 
@@ -274,7 +290,8 @@ async def get_agent_skills(agent_id: int):
 
 
 @api.post("/agents/link/agent/{primary_agent_id}/{secondary_agent_id}")
-async def link_agent_agent(primary_agent_id: int, secondary_agent_id: int):
+@requires("admin") 
+async def link_agent_agent(primary_agent_id: int, secondary_agent_id: int, request: Request):
     """Link an agent to another agent"""
     return dbmanager.link(
         link_type="agent_agent",
@@ -284,7 +301,8 @@ async def link_agent_agent(primary_agent_id: int, secondary_agent_id: int):
 
 
 @api.delete("/agents/link/agent/{primary_agent_id}/{secondary_agent_id}")
-async def unlink_agent_agent(primary_agent_id: int, secondary_agent_id: int):
+@requires("admin") 
+async def unlink_agent_agent(primary_agent_id: int, secondary_agent_id: int, request: Request):
     """Unlink an agent from another agent"""
     return dbmanager.unlink(
         link_type="agent_agent",
@@ -314,20 +332,23 @@ async def get_workflow(workflow_id: int, user_id: str):
 
 
 @api.post("/workflows")
-async def create_workflow(workflow: Workflow):
+@requires("admin") 
+async def create_workflow(workflow: Workflow, request: Request):
     """Create a new workflow"""
     return create_entity(workflow, Workflow)
 
 
 @api.delete("/workflows/delete")
-async def delete_workflow(workflow_id: int, user_id: str):
+@requires("admin") 
+async def delete_workflow(workflow_id: int, user_id: str, request: Request):
     """Delete a workflow"""
     filters = {"id": workflow_id, "user_id": user_id}
     return delete_entity(Workflow, filters=filters)
 
 
 @api.post("/workflows/link/agent/{workflow_id}/{agent_id}/{agent_type}")
-async def link_workflow_agent(workflow_id: int, agent_id: int, agent_type: str):
+@requires("admin") 
+async def link_workflow_agent(workflow_id: int, agent_id: int, agent_type: str, request: Request):
     """Link an agent to a workflow"""
     return dbmanager.link(
         link_type="workflow_agent",
@@ -338,7 +359,8 @@ async def link_workflow_agent(workflow_id: int, agent_id: int, agent_type: str):
 
 
 @api.delete("/workflows/link/agent/{workflow_id}/{agent_id}/{agent_type}")
-async def unlink_workflow_agent(workflow_id: int, agent_id: int, agent_type: str):
+@requires("admin") 
+async def unlink_workflow_agent(workflow_id: int, agent_id: int, agent_type: str, request: Request):
     """Unlink an agent from a workflow"""
     return dbmanager.unlink(
         link_type="workflow_agent",
@@ -373,7 +395,8 @@ async def create_session(session: Session):
 
 
 @api.delete("/sessions/delete")
-async def delete_session(session_id: int, user_id: str):
+@requires("admin") 
+async def delete_session(session_id: int, user_id: str, request: Request):
     """Delete a session"""
     filters = {"id": session_id, "user_id": user_id}
     return delete_entity(Session, filters=filters)
