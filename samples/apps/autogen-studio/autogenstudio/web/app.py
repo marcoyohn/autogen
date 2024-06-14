@@ -8,6 +8,8 @@ from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.requests import HTTPConnection
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from openai import OpenAIError
@@ -98,7 +100,11 @@ app.add_middleware(
 
 
 api = FastAPI(root_path="/api")
-api.add_middleware(AuthMiddleware, verify_header=verify_authorization_header)
+
+def auth_error_handler(conn: HTTPConnection, exc: Exception) -> Response:
+    return PlainTextResponse(str(exc), status_code=401)
+
+api.add_middleware(AuthMiddleware, verify_header=verify_authorization_header, auth_error_handler=auth_error_handler)
 # mount an api route such that the main route serves the ui and the /api
 app.mount("/api", api)
 
