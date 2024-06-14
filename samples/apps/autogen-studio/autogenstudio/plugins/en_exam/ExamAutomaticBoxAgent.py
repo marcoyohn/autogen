@@ -41,6 +41,7 @@ class ExamAutomaticBoxAgent(autogen.AssistantAgent):
         automatic_box_items = [{"item_index": index+1, "item_position": item["item_position"], "item_position_show": item["item_position_show"]} for index, item in enumerate(result["data"]["data"])]
         
         return True, json.dumps({
+            "msg_type": "agent_message_automatic_box",
             "automatic_box_items": automatic_box_items
         })
         # TODO mock result
