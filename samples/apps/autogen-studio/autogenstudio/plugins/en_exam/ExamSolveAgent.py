@@ -38,7 +38,7 @@ class ExamSolveAgent(autogen.AssistantAgent):
         
         automatic_box_item_sprite = None
         automatic_box_item = {}
-        result = {"automatic_box_items":[automatic_box_item]}
+        result = {"msg_type": f"agent_message_{self.exam_solve_type}_patch", "automatic_box_items":[automatic_box_item]}
         new_messages = []
         for message in messages:
             if isinstance(message, dict) and "content" in message and isinstance(message["content"], list):
