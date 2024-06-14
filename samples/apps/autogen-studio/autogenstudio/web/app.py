@@ -83,7 +83,7 @@ dbmanager = DBManager(engine_uri=database_engine_uri)
 async def lifespan(app: FastAPI):
     print("***** App started *****")
     managers["chat"] = AutoGenChatManager(message_queue=message_queue)
-    dbmanager.create_db_and_tables()
+    # dbmanager.create_db_and_tables()
 
     yield
     # Close all active connections
