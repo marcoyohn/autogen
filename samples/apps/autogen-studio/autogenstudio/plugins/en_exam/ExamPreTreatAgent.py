@@ -33,9 +33,9 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
             for item in llm_config["config_list"]
             if item["model"] == "OPENAI_GPT_4_O_PREVIEW"
         ]        
-        self.solve_agent = ExamSolveAgent(name="en_exam_solve_assistant", message_processor=message_processor, context=self.context, llm_config=llm_config)
+        self.solve_agent = ExamSolveAgent(name="en_exam_solve_assistant", message_processor=message_processor, context=self.context, exam_solve_type="solve", llm_config=llm_config)
         self.solve_agent.update_system_message(util.prompt.exam_solve_prompt)
-        self.math_expr_agent = ExamSolveAgent(name="en_exam_math_expr_assistant", message_processor=message_processor, context=self.context, llm_config=llm_config)
+        self.math_expr_agent = ExamSolveAgent(name="en_exam_math_expr_assistant", message_processor=message_processor, context=self.context, exam_solve_type="math_expr", llm_config=llm_config)
         self.math_expr_agent.update_system_message(util.prompt.exam_math_prompt)
         
 
@@ -76,6 +76,7 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
         automatic_box_agent_result = self.initiate_chat(self.automatic_box_agent, message={"role": "user", "content": [images[0]]}, max_turns=1)
         # parse automatic box to image        
         automatic_box_result = json.loads(automatic_box_agent_result.summary)
+        self.context["result"] = automatic_box_result
         for box_item in automatic_box_result["automatic_box_items"]:
             positions = box_item["item_position_show"]
             # 根据给定的坐标裁剪图片
