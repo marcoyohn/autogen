@@ -71,6 +71,7 @@ class ExamSolveAgent(autogen.AssistantAgent):
             positions = box_item["item_position_show"]
             if automatic_box_item_sprite[0] == positions[0][0] and automatic_box_item_sprite[1] == positions[0][1] and automatic_box_item_sprite[2] == positions[2][0] and automatic_box_item_sprite[3] == positions[2][1]:
                 automatic_box_item["item_index"] = box_item["item_index"]
+                box_item[self.exam_solve_type] = extracted_response
                 break
 
         automatic_box_item[self.exam_solve_type] = extracted_response
