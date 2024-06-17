@@ -162,7 +162,8 @@ class WorkflowManager:
         skills = agent.get("skills", [])
         agent = Agent.model_validate(agent)
         agent.config.is_termination_msg = agent.config.is_termination_msg or (
-            lambda x: "TERMINATE" in x.get("content", "").rstrip()[-20:]
+            # modify by ymc，只处理content为str的场景
+            lambda x: isinstance(x.get("content", ""), str) and "TERMINATE" in x.get("content", "").rstrip()[-20:]
         )
 
         def get_default_system_message(agent_type: str) -> str:
