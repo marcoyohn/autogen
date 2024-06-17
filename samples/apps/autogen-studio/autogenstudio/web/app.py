@@ -21,7 +21,7 @@ from ..datamodel import Agent, Message, Model, Response, Session, Skill, Workflo
 from ..utils import check_and_cast_datetime_fields, init_app_folders, md5_hash, test_model
 from ..version import VERSION
 
-from fastapi_auth_middleware import AuthMiddleware
+from ..utils.auth_middleware import *
 from ..utils.uc import *
 from starlette.authentication import requires
 from starlette.requests import Request
@@ -104,7 +104,7 @@ api = FastAPI(root_path="/api")
 def auth_error_handler(conn: HTTPConnection, exc: Exception) -> Response:
     return PlainTextResponse(str(exc), status_code=401)
 
-api.add_middleware(AuthMiddleware, verify_header=verify_authorization_header, auth_error_handler=auth_error_handler)
+api.add_middleware(AuthMiddleware, verify_func=verify_authorization, auth_error_handler=auth_error_handler, excluded_urls=["/api/version"])
 # mount an api route such that the main route serves the ui and the /api
 app.mount("/api", api)
 
@@ -510,3 +510,9 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     except WebSocketDisconnect:
         print(f"Client #{client_id} is disconnected")
         await websocket_manager.disconnect(websocket)
+
+# add by ymc
+@api.get("/current-user")
+async def cuurent_user(request: Request):
+    """current user"""
+    return request.user
