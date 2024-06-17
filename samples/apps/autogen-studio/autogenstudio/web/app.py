@@ -388,7 +388,7 @@ async def list_messages(user_id: str, session_id: int):
 
 @api.post("/sessions/{session_id}/workflow/{workflow_id}/run")
 async def run_session_workflow(message: Message, session_id: int, workflow_id: int):
-    await asyncio.to_thread(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id)
+    return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id)
     
     
 def block_run_session_workflow(message: Message, session_id: int, workflow_id: int):
