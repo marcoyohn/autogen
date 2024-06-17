@@ -263,6 +263,27 @@ export const AgentConfigView = ({
                     />
                   }
                 />
+                {/* add by ymc */}
+                <ControlRowView
+                  title="Cache Seed"
+                  className="mt-4"
+                  description="Cache Seed for llm."
+                  value={llm_config.cache_seed || 41}
+                  control={
+                    <Input
+                      className="mt-2"
+                      placeholder="Cache Seed"
+                      value={llm_config.cache_seed || 41}
+                      onChange={(e) => {
+                        const llm_config = {
+                          ...agent.config.llm_config,
+                          cache_seed: e.target.value,
+                        };
+                        onControlChange(llm_config, "llm_config");
+                      }}
+                    />
+                  }
+                />
 
                 <ControlRowView
                   title="Max Tokens"
