@@ -175,8 +175,8 @@ def delete_entity(model_class: Any, filters: dict = None):
 @api.get("/skills")
 async def list_skills(user_id: str):
     """List all skills for a user"""
-    filters = {"user_id": user_id}
-    return list_entity(Skill, filters=filters)
+    # filters = {"user_id": user_id}
+    return list_entity(Skill, filters=None)
 
 @api.post("/skills")
 @requires("admin") 
@@ -190,15 +190,15 @@ async def create_skill(skill: Skill, request: Request):
 @requires("admin") 
 async def delete_skill(skill_id: int, user_id: str, request: Request):
     """Delete a skill"""
-    filters = {"id": skill_id, "user_id": user_id}
+    filters = {"id": skill_id}
     return delete_entity(Skill, filters=filters)
 
 
 @api.get("/models")
 async def list_models(user_id: str):
     """List all models for a user"""
-    filters = {"user_id": user_id}
-    return list_entity(Model, filters=filters)
+    # filters = {"user_id": user_id}
+    return list_entity(Model, filters=None)
 
 
 @api.post("/models")
@@ -229,15 +229,15 @@ async def test_model_endpoint(model: Model):
 @requires("admin") 
 async def delete_model(model_id: int, user_id: str, request: Request):
     """Delete a model"""
-    filters = {"id": model_id, "user_id": user_id}
+    filters = {"id": model_id}
     return delete_entity(Model, filters=filters)
 
 
 @api.get("/agents")
 async def list_agents(user_id: str):
     """List all agents for a user"""
-    filters = {"user_id": user_id}
-    return list_entity(Agent, filters=filters)
+    # filters = {"user_id": user_id}
+    return list_entity(Agent, filters=None)
 
 
 @api.post("/agents")
@@ -251,7 +251,7 @@ async def create_agent(agent: Agent, request: Request):
 @requires("admin") 
 async def delete_agent(agent_id: int, user_id: str, request: Request):
     """Delete an agent"""
-    filters = {"id": agent_id, "user_id": user_id}
+    filters = {"id": agent_id}
     return delete_entity(Agent, filters=filters)
 
 
@@ -326,14 +326,14 @@ async def get_linked_agents(agent_id: int):
 @api.get("/workflows")
 async def list_workflows(user_id: str):
     """List all workflows for a user"""
-    filters = {"user_id": user_id}
-    return list_entity(Workflow, filters=filters)
+    # filters = {"user_id": user_id}
+    return list_entity(Workflow, filters=None)
 
 
 @api.get("/workflows/{workflow_id}")
 async def get_workflow(workflow_id: int, user_id: str):
     """Get a workflow"""
-    filters = {"id": workflow_id, "user_id": user_id}
+    filters = {"id": workflow_id}
     return list_entity(Workflow, filters=filters)
 
 
@@ -348,7 +348,7 @@ async def create_workflow(workflow: Workflow, request: Request):
 @requires("admin") 
 async def delete_workflow(workflow_id: int, user_id: str, request: Request):
     """Delete a workflow"""
-    filters = {"id": workflow_id, "user_id": user_id}
+    filters = {"id": workflow_id}
     return delete_entity(Workflow, filters=filters)
 
 
