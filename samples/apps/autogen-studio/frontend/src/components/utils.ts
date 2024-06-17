@@ -68,9 +68,24 @@ export function fetchJSON(
   onError: (error: IStatus) => void,
   onFinal: () => void = () => {}
 ) {
+  // add by ymc，增加token参数
+  if (payload.headers) {
+    payload.headers["x-kish-token-key"] = "x-token"
+  } else {
+    payload.headers = {"x-kish-token-key": "x-token"};
+  }
   return fetch(url, payload)
     .then(function (response) {
       if (response.status !== 200) {
+        // add by ymc: 401 check
+        if (response.status == 401) {
+          let localHref = window.location.href;
+          let ucDomain = localHref.indexOf('test') > 0 || localHref.indexOf('localhost') > 0 || localHref.indexOf('127.0.0.1') > 0 ? 'id.test.seewo.com' : 'id.seewo.com';
+          const ucSystemKey = 'SheEditor';
+          const currentUrl = encodeURIComponent(localHref);
+          window.location.href = `${window.location.protocol}//${ucDomain}/login?system=${ucSystemKey}&redirect_url=${currentUrl}`;
+          return;
+        }
         console.log(
           "Looks like there was a problem. Status Code: " + response.status,
           response

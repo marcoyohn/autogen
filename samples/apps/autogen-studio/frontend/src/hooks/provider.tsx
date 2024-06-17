@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   eraseCookie,
+  fetchJSON,
   getLocalStorage,
+  getServerUrl,
   setLocalStorage,
 } from "../components/utils";
 import { message } from "antd";
@@ -35,10 +37,12 @@ const Provider = ({ children }: any) => {
   );
 
   const logout = () => {
-    // setUser(null);
+    setUser(null);
     // eraseCookie(cookie_name);
-    console.log("Please implement your own logout logic");
-    message.info("Please implement your own logout logic");
+    let localHref = window.location.href;
+    let ucDomain = localHref.indexOf('test') > 0 || localHref.indexOf('localhost') > 0 || localHref.indexOf('127.0.0.1') > 0 ? 'id.test.seewo.com' : 'id.seewo.com';
+    const currentUrl = encodeURIComponent(localHref);
+    window.location.href = `${window.location.protocol}//${ucDomain}/logoutToRedirect?redirect_url=${currentUrl}`;
   };
 
   const updateDarkMode = (darkMode: string) => {
@@ -47,13 +51,34 @@ const Provider = ({ children }: any) => {
   };
 
   // Modify logic here to add your own authentication
-  const initUser = {
-    name: "Guest User",
-    email: "guestuser@gmail.com",
-    username: "guestuser",
-  };
-  const [user, setUser] = useState<IUser | null>(initUser);
+  const [user, setUser] = useState<IUser | null>(null);
 
+  // add by ymc: fetch user
+  const serverUrl = getServerUrl();
+  const currentUserUrl = `${serverUrl}/current-user`;
+  const fetchCurrentUser = () => {    
+    const payLoad = {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    };
+    const onSuccess = (data: any) => {
+      setUser({
+        name: data.real_name,
+        email: data.user_id,
+        username: data.user_name,
+      });
+    };
+    const onError = (err: any) => {
+      message.error(err.message);
+    };
+    fetchJSON(currentUserUrl, payLoad, onSuccess, onError);
+  };
+  useEffect(() => {
+    fetchCurrentUser()
+  }, []);
+  
   return (
     <appContext.Provider
       value={{
