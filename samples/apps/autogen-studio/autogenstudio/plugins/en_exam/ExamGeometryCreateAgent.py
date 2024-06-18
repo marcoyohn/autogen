@@ -87,8 +87,8 @@ class SheEditorGeoConeComponent(object):
         result = asdict(self)
         return result    
 
-SheEditorObjectSymbol = Literal["cube", "sphere", "cylinder", "cone", "pyramid", "capsule", "torus", "text3d", "anchorLabel", "square", "circle", "polyline", "polygon", "geoCube", "geoCylinder", "geoCone"]
-SheEditorComponentTypeSymbol = Literal["transform", "standardMaterial", "geoCylinder", "geoCube", "geoCone", "geoCone"]
+SheEditorObjectSymbol = Literal["geoCube", "geoCylinder", "geoCone"]
+SheEditorComponentTypeSymbol = Literal["transform", "standardMaterial", "geoCube", "geoCylinder", "geoCone"]
 
 def createObject(
     objectType: Annotated[SheEditorObjectSymbol, "3d几何体类型"],  
