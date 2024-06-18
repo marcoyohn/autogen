@@ -28,78 +28,114 @@ def function_call_direct_reply(
 
 @dataclass
 class SheEditorIVector3(object):
-    x: Annotated[float, "x坐标"]
-    y: Annotated[float, "y坐标"]
-    z: Annotated[float, "z坐标"]
-
-    def dict(self):
-        result = asdict(self)
-        return result
-    
-@dataclass
-class SheEditorPoint(object):
-    coordinates: Annotated[List[float], "坐标"]
-    name: Annotated[str, "名称"]
-    
+    x: float
+    y: float
+    z: float
 
     def dict(self):
         result = asdict(self)
         return result
 
 @dataclass
-class Polygon(object):
-    name: Annotated[str, "名称"]
-    points: Annotated[List[Annotated[SheEditorPoint,"顶点"]], "顶点集合"]
-    
+class SheEditorTransformComponent(object):
+    position: Annotated[Optional[SheEditorIVector3], "位置信息（默认为坐标为 (0, 0, 0)）"]
+    rotation: Annotated[Optional[SheEditorIVector3], "旋转角度信息(默认为3个方向的旋转角度都为 0， 如果 rotation.x 设置为 90， 表示物体沿着 x 轴旋转 90 度)"]
+    scale: Annotated[Optional[SheEditorIVector3], "缩放信息(1表示不缩放， 默认为 1)"]
 
     def dict(self):
         result = asdict(self)
         return result
 
-#@user_proxy.register_for_execution("create_box")    
-#@math_bot.register_for_llm(description="创建立方体，返回各顶点坐标")
-# def create_box(
-#     height: Annotated[float, "设置高度Y"],
-#     width: Annotated[float, "设置长度X"],
-#     depth: Annotated[float, "设置宽度Z，也称为深度"],
-# ) -> List[Dict]:
-#     return [SheEditorIVector3(x=0,y=0,z=0).dict(), SheEditorIVector3(x=0,y=1,z=0).dict(), SheEditorIVector3(x=1,y=1,z=0).dict(), SheEditorIVector3(x=1,y=0,z=0).dict(), SheEditorIVector3(x=0,y=0,z=1).dict(), SheEditorIVector3(x=0,y=1,z=1).dict(), SheEditorIVector3(x=1,y=1,z=1).dict(), SheEditorIVector3(x=1,y=0,z=1).dict()]
+@dataclass
+class SheEditorStandardMaterialComponent(object):
+    color: Annotated[Optional[str], "外观颜色: #RGB值"]
+    alpha: Annotated[Optional[float], "透明度数值。范围 0 -1。默认值为1，透明度为0时物体不可见。"]
+    disableLighting: Annotated[Optional[bool], "是否禁用光照"]
 
-# @user_proxy.register_for_execution("create_line")  
-# @math_bot.register_for_llm(description="创建线段")
-# def create_line(
-#     start_point: Annotated[SheEditorIVector3, "起始点"],
-#     end_point: Annotated[SheEditorIVector3, "结束点"],
-#     start_point_label: Annotated[str, "起始点的名称"],
-#     end_point_label: Annotated[str, "结束点的名称"],
-# ) -> bool:
-#     return True
+    def dict(self):
+        result = asdict(self)
+        return result
 
+@dataclass
+class SheEditorGeoCubeComponent(object):
+    edgeWidth: Annotated[Optional[float], "棱线宽度"]
+    width: Annotated[Optional[float], "立方体的宽度"]
+    depth: Annotated[Optional[float], "立方体的深度"]
+    height: Annotated[Optional[float], "立方体的高度"]
 
-def create_polygons(
-    polygons: Annotated[List[Annotated[Polygon, "多边形"]], "多边形集合"],    
-) -> bool:
-    return True
+    def dict(self):
+        result = asdict(self)
+        return result    
 
+@dataclass
+class SheEditorGeoCylinderComponent(object):
+    edgeWidth: Annotated[Optional[float], "棱线宽度"]
+    diameter: Annotated[Optional[float], "圆柱体的直径"]
+    height: Annotated[Optional[float], "圆柱体的高度"]
 
-def create_circle(
-    radius: Annotated[float, "半径"],    
-) -> bool:
-    return True
+    def dict(self):
+        result = asdict(self)
+        return result    
 
-# @user_proxy.register_for_execution("create_label")  
-# @math_bot.register_for_llm(description="标记顶点的名称")
-# def create_label(
-#     point: Annotated[SheEditorIVector3, "顶点"],
-#     lable_name: Annotated[str, "顶点的名称"],
-# ) -> bool:
-#     return True
+@dataclass
+class SheEditorGeoConeComponent(object):
+    edgeWidth: Annotated[Optional[float], "棱线宽度"]
+    diameter: Annotated[Optional[float], "圆锥体的底面直径"]
+    height: Annotated[Optional[float], "圆锥体的高度"]
+
+    def dict(self):
+        result = asdict(self)
+        return result    
+
+SheEditorObjectSymbol = Literal["cube", "sphere", "cylinder", "cone", "pyramid", "capsule", "torus", "text3d", "anchorLabel", "square", "circle", "polyline", "polygon"]
+SheEditorComponentTypeSymbol = Literal["transform", "standardMaterial", "geoCylinder", "geoCube", "geoCone", "geoCone"]
+
+def createObject(
+    objectType: Annotated[SheEditorObjectSymbol, "3d几何体类型"],  
+    options: Annotated[
+                Union[
+                    Annotated[SheEditorTransformComponent, "transform组件类型,3d几何体的位置/旋转/缩放属性"],
+                    Annotated[SheEditorStandardMaterialComponent, "standardMaterial组件类型,3d几何的材质属性"],
+                    Annotated[SheEditorGeoCubeComponent, "geoCube立方体组件类型"],
+                    Annotated[SheEditorGeoCylinderComponent, "geoCone圆柱体组件类型"],
+                    Annotated[SheEditorGeoConeComponent, "geoCone圆锥体组件类型"],
+                    ], 
+                "3d几何体组件的属性"],    
+) -> str:
+    return "mock:id"
+
+def updateComponent(
+    id: Annotated[str, "几何体id"],    
+    componentType: Annotated[SheEditorComponentTypeSymbol, "3d几何体组件类型"],    
+    properties: Annotated[
+                            Union[
+                                Annotated[SheEditorTransformComponent, "transform组件类型,3d几何体的位置/旋转/缩放属性"],
+                                Annotated[SheEditorStandardMaterialComponent, "standardMaterial组件类型,3d几何的材质属性"],
+                                Annotated[SheEditorGeoCubeComponent, "geoCube立方体组件类型"],
+                                Annotated[SheEditorGeoCylinderComponent, "geoCone圆柱体组件类型"],
+                                Annotated[SheEditorGeoConeComponent, "geoCone圆锥体组件类型"],
+                                ], 
+                            "3d几何体组件的属性"],    
+) -> str:
+    return "mock:id"
 
 class ExamGeometryCreateAgent(autogen.ConversableAgent):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, message_processor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.message_processor = message_processor
         self.register_reply(autogen.Agent, function_call_direct_reply)
         if self.llm_config:
-            self.register_for_llm(name="create_circle", description="创建圆")(create_circle)
-            self.register_for_llm(name="create_polygons", description="创建多个多边形")(create_polygons)
+            self.register_for_llm(name="createObject", description="创建3d几何体")(createObject)
+            self.register_for_llm(name="updateComponent", description="更新3d几何体属性。规则：1.当遇到颜色属性时，需要转换成#RGB格式")(updateComponent)
 
+
+    def receive(
+        self,
+        message: Union[Dict, str],
+        sender: autogen.Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ):
+        if self.message_processor:
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+        super().receive(message, sender, request_reply, silent)
