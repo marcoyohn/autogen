@@ -5,6 +5,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import autogen
 from autogen.agentchat.agent import Agent
 from autogen.agentchat.contrib.img_utils import get_image_data
+from autogen.cache.cache import Cache
+from autogen.oai.openai_utils import get_key
 from util.send_sign_http import send_request
 
 
@@ -34,16 +36,26 @@ class ExamAutomaticBoxAgent(autogen.AssistantAgent):
                 "anchor":[0,0],
                 "type": 1
             }
+        
+        cache_client = Cache.disk("cache_seed", ".cache")
+        key = get_key(body_params)
+
+        response: str = cache_client.get(key, None)
+        if response:
+            return True, response
+
         result = send_request(os.environ["TAL_ACCESS_KEY_ID"], os.environ["TAL_ACCESS_KEY_SECRET"], timestamp, os.environ["HTTP_API_URL_AUTOMATIC_BOX"], {}, body_params, "POST", "application/json")
         result = json.loads(result)
         if result["code"] != 20000:
             raise RuntimeError('图片题目分割失败')        
         automatic_box_items = [{"item_index": index+1, "item_position": item["item_position"], "item_position_show": item["item_position_show"]} for index, item in enumerate(result["data"]["data"])]
-        
-        return True, json.dumps({
+        response = json.dumps({
             "msg_type": "agent_message_automatic_box",
             "automatic_box_items": automatic_box_items
         })
+        cache_client.set(key, response)
+        return True, response
+    
         # TODO mock result
         # return True, json.dumps({
         #     "automatic_box_items":[
