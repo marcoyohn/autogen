@@ -1,5 +1,6 @@
 import logging
 import os
+from sqlite3 import DatabaseError
 from typing import Any, Dict, Optional, Union
 
 from .abstract_cache_base import AbstractCache
@@ -76,4 +77,14 @@ class CacheFactory:
 
         # Default to DiskCache if neither Redis nor Cosmos DB configurations are provided
         path = os.path.join(cache_path_root, str(seed))
-        return DiskCache(os.path.join(".", path))
+        # modify by ymc
+        try:
+            return DiskCache(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
+        except DatabaseError as e:
+            logging.warning(
+                    f"DiskCache is not available. remove the cache. {e}"
+                )
+            # recover with sqlite3.DatabaseError: database disk image is malformed error
+            os.rmdir(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
+            return DiskCache(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
+        
