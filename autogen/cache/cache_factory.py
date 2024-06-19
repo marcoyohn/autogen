@@ -8,6 +8,8 @@ from .disk_cache import DiskCache
 
 
 class CacheFactory:
+    __cache_map = {}
+
     @staticmethod
     def cache_factory(
         seed: Union[str, int],
@@ -59,8 +61,11 @@ class CacheFactory:
         if redis_url:
             try:
                 from .redis_cache import RedisCache
-
-                return RedisCache(seed, redis_url)
+                cache = CacheFactory.__cache_map.get("redis:" + seed, None)
+                if not cache:
+                    cache = RedisCache(seed, redis_url)
+                    CacheFactory.__cache_map["redis:" + seed] = cache
+                return cache
             except ImportError:
                 logging.warning(
                     "RedisCache is not available. Checking other cache options. The last fallback is DiskCache."
@@ -69,22 +74,22 @@ class CacheFactory:
         if cosmosdb_config:
             try:
                 from .cosmos_db_cache import CosmosDBCache
-
-                return CosmosDBCache.create_cache(seed, cosmosdb_config)
-
+                cache = CacheFactory.__cache_map.get("cosmos:" + seed, None)
+                if not cache:
+                    cache = CosmosDBCache.create_cache(seed, cosmosdb_config)
+                    CacheFactory.__cache_map["cosmos:" + seed] = cache
+                return cache
             except ImportError:
                 logging.warning("CosmosDBCache is not available. Fallback to DiskCache.")
 
         # Default to DiskCache if neither Redis nor Cosmos DB configurations are provided
         path = os.path.join(cache_path_root, str(seed))
         # modify by ymc
-        try:
-            return DiskCache(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
-        except DatabaseError as e:
-            logging.warning(
-                    f"DiskCache is not available. remove the cache. {e}"
-                )
-            # recover with sqlite3.DatabaseError: database disk image is malformed error
-            os.rmdir(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
-            return DiskCache(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
+        cache = CacheFactory.__cache_map.get("disk:" + path, None)
+        if not cache:
+            cache = DiskCache(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
+            CacheFactory.__cache_map["disk:" + path] = cache
+            
+        return cache
+        
         

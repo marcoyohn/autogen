@@ -1,3 +1,6 @@
+import logging
+import os
+from sqlite3 import DatabaseError
 import sys
 from types import TracebackType
 from typing import Any, Optional, Type, Union
@@ -40,7 +43,20 @@ class DiskCache(AbstractCache):
                         a unique storage location for the cache data.
 
         """
-        self.cache = diskcache.Cache(seed)
+        # modify by ymc: handle malformed
+        self.seed = seed 
+        try:
+            self.cache = diskcache.Cache(seed)
+        except DatabaseError as e:
+            if "malformed" in str(e):
+                logging.warning(
+                            f"DiskCache is not available. remove the cache. {e}"
+                        )
+                os.rmdir(seed)
+                self.cache = diskcache.Cache(seed)
+            else:
+                raise e
+            
 
     def get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
         """
@@ -54,7 +70,21 @@ class DiskCache(AbstractCache):
         Returns:
             The value associated with the key if found, else the default value.
         """
-        return self.cache.get(key, default)
+        # modify by ymc: handle malformed
+        try:
+            return self.cache.get(key, default)
+        except DatabaseError as e:
+            if "malformed" in str(e):
+                logging.warning(
+                            f"DiskCache is not available. remove the cache. {e}"
+                        )
+                os.rmdir(self.seed)
+                self.cache = diskcache.Cache(self.seed)
+                return self.cache.get(key, default)
+            else:
+                raise e
+                
+        
 
     def set(self, key: str, value: Any) -> None:
         """
@@ -64,7 +94,19 @@ class DiskCache(AbstractCache):
             key (str): The key under which the item is to be stored.
             value: The value to be stored in the cache.
         """
-        self.cache.set(key, value)
+        # modify by ymc: handle malformed
+        try:
+            self.cache.set(key, value)
+        except DatabaseError as e:
+            if "malformed" in str(e):
+                logging.warning(
+                            f"DiskCache is not available. remove the cache. {e}"
+                        )
+                os.rmdir(self.seed)
+                self.cache = diskcache.Cache(self.seed)
+                self.cache.set(key, value)
+            else:
+                raise e
 
     def close(self) -> None:
         """
