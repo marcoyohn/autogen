@@ -1,5 +1,7 @@
 import copy
 import json
+import logging
+import time
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import autogen
 from autogen.agentchat.agent import Agent
@@ -58,8 +60,16 @@ class ExamSolveAgent(autogen.AssistantAgent):
 
         messages_with_b64_img = self._oai_system_message + new_messages
 
-        # TODO: #1143 handle token limit exceeded error
-        response = client.create(context=messages[-1].pop("context", None), messages=messages_with_b64_img)
+        response = None
+        context = messages[-1].pop("context", None)
+        try:
+            # TODO: #1143 handle token limit exceeded error            
+            response = client.create(context=context, messages=messages_with_b64_img)
+        except Exception as e:
+            # retry
+            logging.error(f"request oai error: {e}. will retry...")
+            time.sleep(3)
+            response = client.create(context=context, messages=messages_with_b64_img)
 
         # TODO: line 301, line 271 is converting messages to dict. Can be removed after ChatCompletionMessage_to_dict is merged.
         extracted_response = client.extract_text_or_completion_object(response)[0]

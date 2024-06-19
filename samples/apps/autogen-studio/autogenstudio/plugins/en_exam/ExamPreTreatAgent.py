@@ -1,3 +1,4 @@
+import concurrent.futures
 import copy
 from io import BytesIO
 import json
@@ -20,6 +21,8 @@ from ExamSolveAgent import ExamSolveAgent
 import util.prompt
 
 class ExamPreTreatAgent(autogen.ConversableAgent):
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix="ThreadPoolExecutor_ExamPreTreat")
+    
     def __init__(self, message_processor=None, llm_config=None, *args, **kwargs):
         super().__init__(llm_config=llm_config, *args, **kwargs)
         self.message_processor = message_processor    
@@ -78,6 +81,7 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
         automatic_box_result = json.loads(automatic_box_agent_result.summary)
         automatic_box_result["msg_type"] = "agent_response"
         self.context["result"] = automatic_box_result
+        futures = []
         for box_item in automatic_box_result["automatic_box_items"]:
             positions = box_item["item_position_show"]
             # 根据给定的坐标裁剪图片
@@ -93,11 +97,16 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
                             }
                         ]
                     }
-            # call exam solve agent            
-            self.initiate_chat(self.solve_agent, message=message, max_turns=1)
+            # call exam solve agent     
+            futures.append(ExamPreTreatAgent.executor.submit(lambda:self.initiate_chat(self.solve_agent, message=message, max_turns=1)))       
+            # self.initiate_chat(self.solve_agent, message=message, max_turns=1)
             # call exam math expr agent
-            self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)
+            futures.append(ExamPreTreatAgent.executor.submit(lambda:self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)))
+            # self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)
 
+        # 获取已完成的任务结果
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
         # return sumary message
         return True, json.dumps(automatic_box_result, ensure_ascii=False)
     
