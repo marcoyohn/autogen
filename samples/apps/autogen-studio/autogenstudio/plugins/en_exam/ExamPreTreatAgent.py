@@ -35,11 +35,8 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
             item
             for item in llm_config["config_list"]
             if item["model"] == "OPENAI_GPT_4_O_PREVIEW"
-        ]        
-        self.solve_agent = ExamSolveAgent(name="en_exam_solve_assistant", message_processor=message_processor, context=self.context, exam_solve_type="solve", llm_config=llm_config)
-        self.solve_agent.update_system_message(util.prompt.exam_solve_prompt)
-        self.math_expr_agent = ExamSolveAgent(name="en_exam_math_expr_assistant", message_processor=message_processor, context=self.context, exam_solve_type="math_expr", llm_config=llm_config)
-        self.math_expr_agent.update_system_message(util.prompt.exam_math_prompt)
+        ]
+        self.exam_solve_llm_config = llm_config        
         
 
     def _generate_exam_pre_treat_reply(
@@ -98,16 +95,25 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
                         ]
                     }
             # call exam solve agent     
-            futures.append(ExamPreTreatAgent.executor.submit(lambda:self.initiate_chat(self.solve_agent, message=message, max_turns=1)))       
+            solve_agent = ExamSolveAgent(name="en_exam_solve_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="solve", llm_config=self.exam_solve_llm_config)
+            solve_agent.update_system_message(util.prompt.exam_solve_prompt)
+            futures.append(ExamPreTreatAgent.executor.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), solve_agent, message))       
             # self.initiate_chat(self.solve_agent, message=message, max_turns=1)
             # call exam math expr agent
-            futures.append(ExamPreTreatAgent.executor.submit(lambda:self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)))
+            math_expr_agent = ExamSolveAgent(name="en_exam_math_expr_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="math_expr", llm_config=self.exam_solve_llm_config)
+            math_expr_agent.update_system_message(util.prompt.exam_math_prompt)
+            futures.append(ExamPreTreatAgent.executor.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), math_expr_agent, message))
             # self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)
 
         # 获取已完成的任务结果
         for future in concurrent.futures.as_completed(futures):
             future.result()
         # return sumary message
+        # check result for test
+        # for box_item in automatic_box_result["automatic_box_items"]:
+        #     if not (box_item.get("solve", None) and box_item.get("math_expr", None)):
+        #         raise RuntimeError("")
+
         return True, json.dumps(automatic_box_result, ensure_ascii=False)
     
     def receive(
