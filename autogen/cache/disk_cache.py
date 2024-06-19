@@ -1,5 +1,5 @@
 import logging
-import os
+import shutil
 from sqlite3 import DatabaseError
 import sys
 from types import TracebackType
@@ -52,7 +52,7 @@ class DiskCache(AbstractCache):
                 logging.warning(
                             f"DiskCache is not available. remove the cache. {e}"
                         )
-                os.rmdir(seed)
+                shutil.rmtree(seed)
                 self.cache = diskcache.Cache(seed)
             else:
                 raise e
@@ -78,7 +78,7 @@ class DiskCache(AbstractCache):
                 logging.warning(
                             f"DiskCache is not available. remove the cache. {e}"
                         )
-                os.rmdir(self.seed)
+                shutil.rmtree(self.seed)
                 self.cache = diskcache.Cache(self.seed)
                 return self.cache.get(key, default)
             else:
@@ -102,7 +102,7 @@ class DiskCache(AbstractCache):
                 logging.warning(
                             f"DiskCache is not available. remove the cache. {e}"
                         )
-                os.rmdir(self.seed)
+                shutil.rmtree(self.seed)
                 self.cache = diskcache.Cache(self.seed)
                 self.cache.set(key, value)
             else:
