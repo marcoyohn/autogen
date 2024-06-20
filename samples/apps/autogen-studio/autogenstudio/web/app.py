@@ -2,6 +2,7 @@ import asyncio
 import os
 import queue
 import threading
+import time
 import traceback
 from contextlib import asynccontextmanager
 from typing import Any
@@ -11,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import HTTPConnection
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+import jwt
 from loguru import logger
 from openai import OpenAIError
 
@@ -513,6 +515,13 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 
 # add by ymc
 @api.get("/current-user")
-async def cuurent_user(request: Request):
+async def current_user(request: Request):
     """current user"""
     return request.user
+
+# add by ymc
+@api.get("/ws-token")
+async def ws_token(request: Request):
+    """get ws token, jwt format"""
+    payload = {"user": {key: value for key, value in request.user.__dict__.items() if not key.startswith('__')}, "scopes": request.auth.scopes, 'exp': int(time.time()) + 300}
+    return "jwt:" + jwt.encode(payload, os.environ["WS_TOKEN_JWT_SECRET"], algorithm=os.environ["WS_TOKEN_JWT_ALGORITHM"])
