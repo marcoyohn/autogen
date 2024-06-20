@@ -67,6 +67,8 @@ const ChatBox = ({
   const serverUrl = getServerUrl();
 
   let websocketUrl = serverUrl.replace("http", "ws") + "/ws/";
+  // add by ymc
+  const wsTokenUrl = `${serverUrl}/ws-token`;
 
   // check if there is a protocol in the serverUrl e.g. /api. if use the page url
   if (!serverUrl.includes("http")) {
@@ -288,68 +290,84 @@ const ChatBox = ({
     const socketUrl = websocketUrl + connectionId;
     console.log("socketUrl", socketUrl);
     if (!wsClient.current) {
-      const client = new WebSocket(socketUrl);
-      wsClient.current = client;
-      client.onerror = (e) => {
-        console.log("ws error", e);
+      // add by ymc: get ws token
+      const payLoad = {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
       };
+      const onSuccess = (token: any) => {
+        const client = new WebSocket(socketUrl+"?access_token=" + token);
+        wsClient.current = client;
+        client.onerror = (e) => {
+          console.log("ws error", e);
+        };
 
-      client.onopen = () => {
-        setWsConnectionStatus("connected");
-        console.log("ws opened");
-      };
+        client.onopen = () => {
+          setWsConnectionStatus("connected");
+          console.log("ws opened");
+        };
 
-      client.onclose = () => {
-        if (wsClient.current) {
-          // Connection failed
-          console.log("ws closed by server");
-        } else {
-          // Cleanup initiated from app side, can return here, to not attempt a reconnect
-          return;
-        }
-
-        if (waitingToReconnect) {
-          return;
-        }
-        setWsConnectionStatus("disconnected");
-        setWaitingToReconnect(true);
-        setWsConnectionStatus("reconnecting");
-        setTimeout(() => {
-          setWaitingToReconnect(null);
-        }, RETRY_INTERVAL);
-      };
-
-      client.onmessage = (message) => {
-        const data = JSON.parse(message.data);
-        console.log("received message", data);
-        if (data && data.type === "agent_message") {
-          // indicates an intermediate agent message update
-          const newsocketMessages = Object.assign([], socketMessages);
-          newsocketMessages.push(data.data);
-          setSocketMessages(newsocketMessages);
-          socketMsgs.push(data.data);
-          setTimeout(() => {
-            scrollChatBox(socketDivRef);
-            scrollChatBox(messageBoxInputRef);
-          }, 200);
-          // console.log("received message", data, socketMsgs.length);
-        } else if (data && data.type === "agent_status") {
-          // indicates a status message update
-          const agentStatusSpan = document.getElementById("agentstatusspan");
-          if (agentStatusSpan) {
-            agentStatusSpan.innerHTML = data.data.message;
+        client.onclose = () => {
+          if (wsClient.current) {
+            // Connection failed
+            console.log("ws closed by server");
+          } else {
+            // Cleanup initiated from app side, can return here, to not attempt a reconnect
+            return;
           }
-        } else if (data && data.type === "agent_response") {
-          // indicates a final agent response
-          processAgentResponse(data.data);
-        }
+
+          if (waitingToReconnect) {
+            return;
+          }
+          setWsConnectionStatus("disconnected");
+          setWaitingToReconnect(true);
+          setWsConnectionStatus("reconnecting");
+          setTimeout(() => {
+            setWaitingToReconnect(null);
+          }, RETRY_INTERVAL);
+        };
+
+        client.onmessage = (message) => {
+          const data = JSON.parse(message.data);
+          console.log("received message", data);
+          if (data && data.type === "agent_message") {
+            // indicates an intermediate agent message update
+            const newsocketMessages = Object.assign([], socketMessages);
+            newsocketMessages.push(data.data);
+            setSocketMessages(newsocketMessages);
+            socketMsgs.push(data.data);
+            setTimeout(() => {
+              scrollChatBox(socketDivRef);
+              scrollChatBox(messageBoxInputRef);
+            }, 200);
+            // console.log("received message", data, socketMsgs.length);
+          } else if (data && data.type === "agent_status") {
+            // indicates a status message update
+            const agentStatusSpan = document.getElementById("agentstatusspan");
+            if (agentStatusSpan) {
+              agentStatusSpan.innerHTML = data.data.message;
+            }
+          } else if (data && data.type === "agent_response") {
+            // indicates a final agent response
+            processAgentResponse(data.data);
+          }
+        };
+        
       };
+      const onError = (err: any) => {
+        message.error(err.message);
+      };
+      fetchJSON(wsTokenUrl, payLoad, onSuccess, onError);
 
       return () => {
         console.log("Cleanup");
         // Dereference, so it will set up next time
+        // modify by ymc
+        let client = wsClient.current;
         wsClient.current = null;
-        client.close();
+        client?.close();
       };
     }
   }, [waitingToReconnect]);

@@ -33,6 +33,7 @@ dependencies = [
     "mysql-connector-python",
     "alembic",
     "loguru",
+    "pyjwt",
 ]
 optional-dependencies = {web = ["fastapi", "uvicorn"], database = ["psycopg"]}
 
