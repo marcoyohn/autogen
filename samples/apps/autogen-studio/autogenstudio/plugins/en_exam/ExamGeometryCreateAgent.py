@@ -91,13 +91,13 @@ SheEditorObjectSymbol = Literal["geoCube", "geoCylinder", "geoCone"]
 SheEditorComponentTypeSymbol = Literal["transform", "standardMaterial", "geoCube", "geoCylinder", "geoCone"]
 
 def createObject(
-    objectType: Annotated[SheEditorObjectSymbol, "3d几何体类型"],  
+    objectType: Annotated[SheEditorObjectSymbol, "3d几何体类型: 1.geoCube 立方体 2.geoCylinder 圆柱体 3.geoCone 圆锥体"],  
     options: Annotated[
                 Union[
                     Annotated[SheEditorTransformComponent, "transform组件类型,3d几何体的位置/旋转/缩放属性"],
                     Annotated[SheEditorStandardMaterialComponent, "standardMaterial组件类型,3d几何的材质属性"],
                     Annotated[SheEditorGeoCubeComponent, "geoCube立方体组件类型"],
-                    Annotated[SheEditorGeoCylinderComponent, "geoCone圆柱体组件类型"],
+                    Annotated[SheEditorGeoCylinderComponent, "geoCylinder圆柱体组件类型"],
                     Annotated[SheEditorGeoConeComponent, "geoCone圆锥体组件类型"],
                     ], 
                 "3d几何体组件的属性"],    
