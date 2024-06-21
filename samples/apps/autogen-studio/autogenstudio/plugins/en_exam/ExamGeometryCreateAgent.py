@@ -112,7 +112,7 @@ def updateComponent(
                                 Annotated[SheEditorTransformComponent, "transform组件类型,3d几何体的位置/旋转/缩放属性"],
                                 Annotated[SheEditorStandardMaterialComponent, "standardMaterial组件类型,3d几何的材质属性"],
                                 Annotated[SheEditorGeoCubeComponent, "geoCube立方体组件类型"],
-                                Annotated[SheEditorGeoCylinderComponent, "geoCone圆柱体组件类型"],
+                                Annotated[SheEditorGeoCylinderComponent, "geoCylinder圆柱体组件类型"],
                                 Annotated[SheEditorGeoConeComponent, "geoCone圆锥体组件类型"],
                                 ], 
                             "3d几何体组件的属性"],    
