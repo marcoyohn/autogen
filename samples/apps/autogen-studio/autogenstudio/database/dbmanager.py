@@ -69,7 +69,7 @@ class DBManager:
                 session.refresh(model)
             except Exception as e:
                 session.rollback()
-                logger.error("Error while upserting %s", e)
+                logger.error(f"Error while upserting {e}")
                 status = False
 
         response = Response(
@@ -170,16 +170,16 @@ class DBManager:
                     status_message = f"{model_class.__name__} Deleted Successfully"
                 else:
                     print(f"Row with filters {filters} not found")
-                    logger.info("Row with filters %s not found", filters)
+                    logger.info(f"Row with filters {filters} not found")
                     status_message = "Row not found"
             except exc.IntegrityError as e:
                 session.rollback()
-                logger.error("Integrity ... Error while deleting: %s", e)
+                logger.error(f"Integrity ... Error while deleting: {e}")
                 status_message = f"The {model_class.__name__} is linked to another entity and cannot be deleted."
                 status = False
             except Exception as e:
                 session.rollback()
-                logger.error("Error while deleting: %s", e)
+                logger.error(f"Error while deleting: {e}")
                 status_message = f"Error while deleting: {e}"
                 status = False
             response = Response(
@@ -238,7 +238,7 @@ class DBManager:
                         )
                     ).all()
             except Exception as e:
-                logger.error("Error while getting linked entities: %s", e)
+                logger.error(f"Error while getting linked entities: {e}")
                 status_message = f"Error while getting linked entities: {e}"
                 status = False
             if return_json:
@@ -398,7 +398,7 @@ class DBManager:
 
                 except Exception as e:
                     session.rollback()
-                    logger.error("Error while linking: %s", e)
+                    logger.error(f"Error while linking: {e}")
                     status = False
                     status_message = f"Error while linking due to an exception: {e}"
 
@@ -478,7 +478,7 @@ class DBManager:
 
             except Exception as e:
                 session.rollback()
-                logger.error("Error while unlinking: %s", e)
+                logger.error(f"Error while unlinking: {e}")
                 status = False
                 status_message = f"Error while unlinking due to an exception: {e}"
 
