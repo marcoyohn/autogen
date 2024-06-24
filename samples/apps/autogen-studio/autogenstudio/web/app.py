@@ -300,9 +300,10 @@ async def get_linked_agents(agent_id: int):
 
 
 @api.get("/workflows")
-async def list_workflows():
+async def list_workflows(name: str=None):
     """List all workflows for a user"""
-    return list_entity(Workflow, filters=None)
+    filters = {"name": name} if name else None
+    return list_entity(Workflow, filters=filters)
 
 
 @api.get("/workflows/{workflow_id}")
