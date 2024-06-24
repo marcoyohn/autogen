@@ -2,6 +2,7 @@ import logging
 import shutil
 from sqlite3 import DatabaseError
 import sys
+import time
 from types import TracebackType
 from typing import Any, Optional, Type, Union
 
@@ -104,6 +105,12 @@ class DiskCache(AbstractCache):
                         )
                 shutil.rmtree(self.seed)
                 self.cache = diskcache.Cache(self.seed)
+                self.cache.set(key, value)
+            elif "locked" in str(e):
+                logging.warning(
+                            f"DiskCache locked. {e}"
+                        )
+                time.sleep(1)
                 self.cache.set(key, value)
             else:
                 raise e
