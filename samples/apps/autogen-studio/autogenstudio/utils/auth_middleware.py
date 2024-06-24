@@ -31,7 +31,7 @@ class FastAPIUser(BaseUser):
     @property
     def display_name(self) -> str:
         """ Display name of the user """
-        return f'{self.first_name} {self.last_name}'
+        return f'{self.real_name or self.nick_name or self.user_name}'
 
     @property
     def identity(self) -> str:
