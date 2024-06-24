@@ -7,7 +7,7 @@ import traceback
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import HTTPConnection
 from fastapi.responses import PlainTextResponse
@@ -120,29 +120,6 @@ api.mount(
 
 # manage websocket connections
 
-
-@api.get("/messages")
-async def get_messages(user_id: str = None, session_id: str = None):
-    if user_id is None:
-        raise HTTPException(status_code=400, detail="user_id is required")
-    try:
-        user_history = dbutils.get_messages(
-            user_id=user_id, session_id=session_id, dbmanager=dbmanager
-        )
-
-        return {
-            "status": True,
-            "data": user_history,
-            "message": "Messages retrieved successfully",
-        }
-    except Exception as ex_error:
-        print(ex_error)
-        return {
-            "status": False,
-            "message": f"Error occurred while creating {model_class.__name__}: " + str(ex_error),
-        }
-
-
 def create_entity(model: Any, model_class: Any, filters: dict = None):
     """Create a new entity"""
     model = check_and_cast_datetime_fields(model)
@@ -175,31 +152,29 @@ def delete_entity(model_class: Any, filters: dict = None):
 
 
 @api.get("/skills")
-async def list_skills(user_id: str):
+async def list_skills():
     """List all skills for a user"""
-    # filters = {"user_id": user_id}
     return list_entity(Skill, filters=None)
 
 @api.post("/skills")
 @requires("admin") 
 async def create_skill(skill: Skill, request: Request):
     """Create a new skill"""
-    filters = {"user_id": skill.user_id}
+    filters = {"user_id": request.user.identity}
     return create_entity(skill, Skill, filters=filters)
 
 
 @api.delete("/skills/delete")
 @requires("admin") 
-async def delete_skill(skill_id: int, user_id: str, request: Request):
+async def delete_skill(skill_id: int, request: Request):
     """Delete a skill"""
     filters = {"id": skill_id}
     return delete_entity(Skill, filters=filters)
 
 
 @api.get("/models")
-async def list_models(user_id: str):
+async def list_models():
     """List all models for a user"""
-    # filters = {"user_id": user_id}
     return list_entity(Model, filters=None)
 
 
@@ -229,16 +204,15 @@ async def test_model_endpoint(model: Model):
 
 @api.delete("/models/delete")
 @requires("admin") 
-async def delete_model(model_id: int, user_id: str, request: Request):
+async def delete_model(model_id: int, request: Request):
     """Delete a model"""
     filters = {"id": model_id}
     return delete_entity(Model, filters=filters)
 
 
 @api.get("/agents")
-async def list_agents(user_id: str):
+async def list_agents():
     """List all agents for a user"""
-    # filters = {"user_id": user_id}
     return list_entity(Agent, filters=None)
 
 
@@ -251,7 +225,7 @@ async def create_agent(agent: Agent, request: Request):
 
 @api.delete("/agents/delete")
 @requires("admin") 
-async def delete_agent(agent_id: int, user_id: str, request: Request):
+async def delete_agent(agent_id: int, request: Request):
     """Delete an agent"""
     filters = {"id": agent_id}
     return delete_entity(Agent, filters=filters)
@@ -326,14 +300,13 @@ async def get_linked_agents(agent_id: int):
 
 
 @api.get("/workflows")
-async def list_workflows(user_id: str):
+async def list_workflows():
     """List all workflows for a user"""
-    # filters = {"user_id": user_id}
     return list_entity(Workflow, filters=None)
 
 
 @api.get("/workflows/{workflow_id}")
-async def get_workflow(workflow_id: int, user_id: str):
+async def get_workflow(workflow_id: int):
     """Get a workflow"""
     filters = {"id": workflow_id}
     return list_entity(Workflow, filters=filters)
@@ -348,7 +321,7 @@ async def create_workflow(workflow: Workflow, request: Request):
 
 @api.delete("/workflows/delete")
 @requires("admin") 
-async def delete_workflow(workflow_id: int, user_id: str, request: Request):
+async def delete_workflow(workflow_id: int, request: Request):
     """Delete a workflow"""
     filters = {"id": workflow_id}
     return delete_entity(Workflow, filters=filters)
@@ -390,9 +363,9 @@ async def get_linked_workflow_agents(workflow_id: int, agent_type: str):
 
 
 @api.get("/sessions")
-async def list_sessions(user_id: str):
+async def list_sessions(request: Request):
     """List all sessions for a user"""
-    filters = {"user_id": user_id}
+    filters = {"user_id": request.user.identity}
     return list_entity(Session, filters=filters)
 
 
@@ -404,21 +377,23 @@ async def create_session(session: Session):
 
 @api.delete("/sessions/delete")
 @requires("admin") 
-async def delete_session(session_id: int, user_id: str, request: Request):
+async def delete_session(session_id: int, request: Request):
     """Delete a session"""
-    filters = {"id": session_id, "user_id": user_id}
+    filters = {"id": session_id, "user_id": request.user.identity}
     return delete_entity(Session, filters=filters)
 
 
 @api.get("/sessions/{session_id}/messages")
-async def list_messages(user_id: str, session_id: int):
+async def list_messages(session_id: int, request: Request):
     """List all messages for a use session"""
-    filters = {"user_id": user_id, "session_id": session_id}
+    filters = {"user_id": request.user.identity, "session_id": session_id}
     return list_entity(Message, filters=filters, order="asc", return_json=True)
 
 
 @api.post("/sessions/{session_id}/workflow/{workflow_id}/run")
-async def run_session_workflow(message: Message, session_id: int, workflow_id: int):
+async def run_session_workflow(message: Message, session_id: int, workflow_id: int, request: Request=None):
+    if request:
+        message.user_id = request.user.identity
     return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id)
     
     
@@ -487,10 +462,11 @@ async def get_version():
 # websockets
 
 
-async def process_socket_message(data: dict, websocket: WebSocket, client_id: str):
+async def process_socket_message(data: dict, websocket: WebSocket, client_id: str, user_id: str):
     print(f"Client says: {data['type']}")
     if data["type"] == "user_message":
         user_message = Message(**data["data"])
+        user_message.user_id = user_id
         session_id = data["data"].get("session_id", None)
         workflow_id = data["data"].get("workflow_id", None)
         response = await run_session_workflow(message=user_message, session_id=session_id, workflow_id=workflow_id)
@@ -508,7 +484,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     try:
         while True:
             data = await websocket.receive_json()
-            await process_socket_message(data, websocket, client_id)
+            await process_socket_message(data, websocket, client_id, websocket.user.identity)
     except WebSocketDisconnect:
         print(f"Client #{client_id} is disconnected")
         await websocket_manager.disconnect(websocket)
