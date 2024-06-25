@@ -12,7 +12,8 @@ from PIL import Image
 import sys
 from os import path
 
-from autogen.agentchat.contrib.img_utils import get_image_data, get_pil_image
+from autogen.agentchat.contrib.img_utils import get_pil_image, pil_to_data_uri
+from autogen.cache.cache import Cache
 # 把当前路径添加到pythonpath中
 sys.path.append(path.dirname(path.abspath(__file__)))
 from ExamAutomaticBoxAgent import ExamAutomaticBoxAgent
@@ -71,7 +72,14 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
         image_url_dict = images[0]["image_url"]
         image_url = image_url_dict["url"]
         filekey = image_url_dict.get("filekey", None) or image_url
-        image = get_pil_image(image_url)
+        image = None
+        with Cache.disk("automatic_box", ".cache") as cache_client:
+            image_cache: str = cache_client.get(filekey, None)
+            if image_cache:
+                image = get_pil_image(image_cache)
+            else:
+                image = get_pil_image(image_url)
+                cache_client.set(filekey, pil_to_data_uri(image))
         self.context[f"image:{filekey}"] = image
         automatic_box_agent_result = self.initiate_chat(self.automatic_box_agent, message={"role": "user", "content": [images[0]]}, max_turns=1)
         # parse automatic box to image        
