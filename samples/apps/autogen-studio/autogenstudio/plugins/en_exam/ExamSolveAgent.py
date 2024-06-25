@@ -5,7 +5,7 @@ import time
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import autogen
 from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.img_utils import get_image_data
+from autogen.agentchat.contrib.img_utils import get_image_data, pil_to_data_uri
 from autogen.agentchat.conversable_agent import ConversableAgent
 from autogen._pydantic import model_dump
 
@@ -52,8 +52,7 @@ class ExamSolveAgent(autogen.AssistantAgent):
                         sprite = image_url_dict["sprite"]
                         automatic_box_item_sprite = sprite
                         cropped_image = self.context[f"image:{filekey}:{sprite[0]}-{sprite[1]}-{sprite[2]}-{sprite[3]}"]
-                        cropped_image_base64 = get_image_data(cropped_image, use_b64=True)
-                        image_url_dict["url"] = f"data:image/png;base64,{cropped_image_base64}"
+                        image_url_dict["url"] = pil_to_data_uri(cropped_image)
 
             new_messages.append(message)
         
