@@ -49,11 +49,11 @@ class DiskCache(AbstractCache):
         try:
             self.cache = diskcache.Cache(seed)
         except DatabaseError as e:
-            if "malformed" in str(e):
+            if "malformed" in str(e) or "unable to open database file" in str(e):
                 logging.warning(
                             f"DiskCache is not available. remove the cache. {e}"
                         )
-                shutil.rmtree(seed)
+                shutil.rmtree(seed, ignore_errors=True)
                 self.cache = diskcache.Cache(seed)
             else:
                 raise e
@@ -75,11 +75,11 @@ class DiskCache(AbstractCache):
         try:
             return self.cache.get(key, default)
         except DatabaseError as e:
-            if "malformed" in str(e):
+            if "malformed" in str(e) or "unable to open database file" in str(e):
                 logging.warning(
                             f"DiskCache is not available. remove the cache. {e}"
                         )
-                shutil.rmtree(self.seed)
+                shutil.rmtree(self.seed, ignore_errors=True)
                 self.cache = diskcache.Cache(self.seed)
                 return self.cache.get(key, default)
             else:
@@ -99,11 +99,11 @@ class DiskCache(AbstractCache):
         try:
             self.cache.set(key, value)
         except DatabaseError as e:
-            if "malformed" in str(e):
+            if "malformed" in str(e) or "unable to open database file" in str(e):
                 logging.warning(
                             f"DiskCache is not available. remove the cache. {e}"
                         )
-                shutil.rmtree(self.seed)
+                shutil.rmtree(self.seed, ignore_errors=True)
                 self.cache = diskcache.Cache(self.seed)
                 self.cache.set(key, value)
             elif "locked" in str(e):
