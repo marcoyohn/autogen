@@ -74,6 +74,8 @@ class ExamSolveAgent(autogen.AssistantAgent):
         extracted_response = client.extract_text_or_completion_object(response)[0]
         if not isinstance(extracted_response, str):
             extracted_response = model_dump(extracted_response)
+        elif extracted_response == "null":
+            extracted_response = ""
 
         context_result = self.context["result"]
         for box_item in context_result["automatic_box_items"]:
