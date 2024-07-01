@@ -106,7 +106,7 @@ api = FastAPI(root_path="/api")
 def auth_error_handler(conn: HTTPConnection, exc: Exception) -> Response:
     return PlainTextResponse(str(exc), status_code=401)
 
-api.add_middleware(AuthMiddleware, verify_func=verify_authorization, auth_error_handler=auth_error_handler, excluded_urls=["/api/version"])
+api.add_middleware(AuthMiddleware, verify_func=verify_authorization, auth_error_handler=auth_error_handler, excluded_urls=["/api/version", "/api/docs", "/api/openapi.json"])
 # mount an api route such that the main route serves the ui and the /api
 app.mount("/api", api)
 
