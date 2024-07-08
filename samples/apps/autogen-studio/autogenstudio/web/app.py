@@ -173,9 +173,18 @@ async def delete_skill(skill_id: int, request: Request):
 
 
 @api.get("/models")
-async def list_models():
+async def list_models(request: Request):
     """List all models for a user"""
-    return list_entity(Model, filters=None)
+    if 'admin' in request.auth.scopes:
+        return list_entity(Model, filters=None)
+    else:
+        models = list_entity(Model, filters=None)
+        if models and models.data:
+            for model in models.data:
+                if model.get("api_key"):
+                    model["api_key"] = "..."    
+
+        return models
 
 
 @api.post("/models")
@@ -246,9 +255,18 @@ async def unlink_agent_model(agent_id: int, model_id: int, request: Request):
 
 
 @api.get("/agents/link/model/{agent_id}")
-async def get_agent_models(agent_id: int):
+async def get_agent_models(agent_id: int, request: Request):
     """Get all models linked to an agent"""
-    return dbmanager.get_linked_entities("agent_model", agent_id, return_json=True)
+    if 'admin' in request.auth.scopes:
+        return dbmanager.get_linked_entities("agent_model", agent_id, return_json=True)
+    else:
+        models = dbmanager.get_linked_entities("agent_model", agent_id, return_json=True)
+        if models and models.data:
+            for model in models.data:
+                if model.get("api_key"):
+                    model["api_key"] = "..."    
+
+        return models    
 
 
 @api.post("/agents/link/skill/{agent_id}/{skill_id}")
