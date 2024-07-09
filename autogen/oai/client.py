@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import os
 import sys
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Union
@@ -602,7 +603,11 @@ class OpenAIWrapper:
                 cache_client = cache
             elif cache_seed is not None:
                 # Legacy cache behavior, if cache_seed is given, use DiskCache.
-                cache_client = Cache.disk(cache_seed, LEGACY_CACHE_DIR)
+                redis_url = os.environ.get("cache_redis_url")
+                if redis_url:
+                    cache_client = Cache.redis(cache_seed, redis_url)
+                else:
+                    cache_client = Cache.disk(cache_seed, LEGACY_CACHE_DIR)
 
             if cache_client is not None:
                 with cache_client as cache:
