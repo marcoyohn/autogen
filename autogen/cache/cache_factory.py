@@ -1,6 +1,7 @@
 import logging
 import os
 from sqlite3 import DatabaseError
+import threading
 from typing import Any, Dict, Optional, Union
 
 from .abstract_cache_base import AbstractCache
@@ -9,6 +10,8 @@ from .disk_cache import DiskCache
 
 class CacheFactory:
     __cache_map = {}
+    # 创建互斥锁
+    __cache_lock = threading.Lock()
 
     @staticmethod
     def cache_factory(
@@ -87,8 +90,17 @@ class CacheFactory:
         # modify by ymc
         cache = CacheFactory.__cache_map.get("disk:" + path, None)
         if not cache:
-            cache = DiskCache(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
-            CacheFactory.__cache_map["disk:" + path] = cache
+            # 上锁
+            CacheFactory.__cache_lock.acquire()
+            try:
+                # 再次检查cache是否已经被创建
+                cache = CacheFactory.__cache_map.get("disk:" + path, None)
+                if not cache:
+                    cache = DiskCache(os.path.join(os.environ.get("AUTOGEN_CACHE_DIR") or ".", path))
+                    CacheFactory.__cache_map["disk:" + path] = cache
+            finally:
+                # 释放锁
+                CacheFactory.__cache_lock.release()        
             
         return cache
         
