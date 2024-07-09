@@ -1,3 +1,4 @@
+import hashlib
 import importlib.metadata
 import json
 import logging
@@ -95,7 +96,9 @@ def get_key(config: Dict[str, Any]) -> str:
     # if isinstance(config, list):
     #     return tuple(get_key(x) for x in config)
     # return config
-    return json.dumps(config, sort_keys=True)
+    json_serial = json.dumps(config, sort_keys=True)
+    key = hashlib.md5(json_serial.encode()).hexdigest() + str(len(json_serial)) + json_serial[-10:]
+    return key
 
 
 def is_valid_api_key(api_key: str) -> bool:

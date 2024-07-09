@@ -1,4 +1,4 @@
-import logging
+from loguru import logger as logging
 import shutil
 from sqlite3 import DatabaseError
 import sys
@@ -47,7 +47,7 @@ class DiskCache(AbstractCache):
         # modify by ymc: handle malformed
         self.seed = seed 
         try:
-            self.cache = diskcache.Cache(seed)
+            self.cache = diskcache.Cache(seed)      
         except DatabaseError as e:
             if "malformed" in str(e) or "unable to open database file" in str(e):
                 logging.warning(
@@ -82,6 +82,11 @@ class DiskCache(AbstractCache):
                 shutil.rmtree(self.seed, ignore_errors=True)
                 self.cache = diskcache.Cache(self.seed)
                 return self.cache.get(key, default)
+            elif "locked" in str(e):
+                logging.warning(
+                            f"DiskCache locked on get. {e}"
+                        )
+                return None
             else:
                 raise e
                 
@@ -108,10 +113,9 @@ class DiskCache(AbstractCache):
                 self.cache.set(key, value)
             elif "locked" in str(e):
                 logging.warning(
-                            f"DiskCache locked. {e}"
+                            f"DiskCache locked on set. {e}"
                         )
-                time.sleep(1)
-                self.cache.set(key, value)
+                # ignore set, just return
             else:
                 raise e
 
