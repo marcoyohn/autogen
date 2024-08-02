@@ -1,20 +1,24 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import os
 import queue
 import threading
 import time
 import traceback
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Optional
+import uuid
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import HTTPConnection
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import jwt
 from loguru import logger
 from openai import OpenAIError
+
+from autogen.function_utils import serialize_to_str
 
 from ..chatmanager import AutoGenChatManager, WebSocketConnectionManager
 from ..database import workflow_from_id
@@ -28,10 +32,12 @@ from ..utils.uc import *
 from starlette.authentication import requires
 from starlette.requests import Request
 
+thread_pool= ThreadPoolExecutor(max_workers=200)
 
 managers = {"chat": None}  # manage calls to autogen
 # Create thread-safe queue for messages between api thread and autogen threads
 message_queue = queue.Queue()
+job_done = object()  # signals the processing is done
 active_connections = []
 active_connections_lock = asyncio.Lock()
 websocket_manager = WebSocketConnectionManager(
@@ -330,6 +336,27 @@ async def get_workflow(workflow_id: int):
     filters = {"id": workflow_id}
     return list_entity(Workflow, filters=filters)
 
+@api.post("/workflows/{workflow_id}/run")
+async def run_workflow(message: Message, workflow_id: int, request: Request=None):
+    if message.session_id:
+        raise RuntimeError("message with session id, will be call /sessions/{session_id}/workflow/{workflow_id}/run")
+    if request:
+        message.user_id = request.user.identity
+    return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=None, workflow_id=workflow_id)
+
+@api.post("/workflows/{workflow_id}/run/sse")
+async def run_workflow_sse(message: Message, workflow_id: int, request: Request=None):
+    if message.session_id:
+        raise RuntimeError("message with session id, will be call /sessions/{session_id}/workflow/{workflow_id}/run/sse")
+    if request:
+        message.user_id = request.user.identity
+    sse_queue = queue.Queue()
+    thread_pool.submit(block_run_session_workflow, message=message, session_id=None, workflow_id=workflow_id, notify_message_queue=sse_queue, need_notify_job_done=True)
+
+    return StreamingResponse(
+        adapter_queue(sse_queue),
+        media_type="text/event-stream",
+    )
 
 @api.post("/workflows")
 @requires("admin") 
@@ -413,11 +440,42 @@ async def list_messages(session_id: int, request: Request):
 async def run_session_workflow(message: Message, session_id: int, workflow_id: int, request: Request=None):
     if request:
         message.user_id = request.user.identity
+    message.session_id = session_id
     return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id)
-    
-    
-def block_run_session_workflow(message: Message, session_id: int, workflow_id: int):
+
+@api.post("/sessions/{session_id}/workflow/{workflow_id}/run/sse")
+async def run_session_workflow_sse(message: Message, session_id: int, workflow_id: int, request: Request=None):
+    if request:
+        message.user_id = request.user.identity
+    message.session_id = session_id
+
+    sse_queue = queue.Queue()
+    thread_pool.submit(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id, notify_message_queue=sse_queue, need_notify_job_done=True)
+
+    return StreamingResponse(
+        adapter_queue(sse_queue),
+        media_type="text/event-stream",
+    )
+
+# add by ymc
+def adapter_queue(queue: queue.Queue):
+    while True:
+        next_item = queue.get(block=True)  # blocks until an input is available
+        if next_item is job_done:
+            break        
+        yield f"data: {serialize_to_str(next_item)}\n\n"
+
+def block_run_session_workflow(message: Message, session_id: int, workflow_id: int, notify_message_queue: Optional[queue.Queue]=None, need_notify_job_done: bool = False):
     """Runs a workflow on provided message"""
+    # add by ymc: send message to queue
+    def send_message(message: str) -> None:    
+        if notify_message_queue: 
+            notify_message_queue.put(message, block=True)            
+
+    # add by ymc: 没有则生成connection_id，便于关联请求和响应
+    if message.connection_id is None:
+        message.connection_id = str(uuid.uuid4())
+
     message_dict = message.model_dump()
     try:
         user_message_history = (
@@ -457,16 +515,38 @@ def block_run_session_workflow(message: Message, session_id: int, workflow_id: i
             user_dir=user_dir,
             workflow=workflow,
             connection_id=message.connection_id,
+            send_message_function=send_message, # add by ymc
         )
 
         response: Response = dbmanager.upsert(agent_response)
-        return response.model_dump(mode="json")
+
+        response_socket_message = {
+            "type": "agent_response",
+            "data": response.model_dump(mode="json"),
+            "connection_id": message.connection_id,
+        }
+        if notify_message_queue: 
+            notify_message_queue.put(response_socket_message, block=True) 
+            if need_notify_job_done: 
+                notify_message_queue.put(job_done, block=True)
+        return response
     except Exception as ex_error:
         print(traceback.format_exc())
-        return {
-            "status": False,
-            "message": "Error occurred while processing message: " + str(ex_error),
-        }
+        # modify by ymc
+        response = {
+                            "status": False,
+                            "message": "Error occurred while processing message: " + str(ex_error),
+                        }
+        if notify_message_queue: 
+            response_socket_message = {
+                "type": "agent_response",
+                "data": serialize_to_str(response),
+                "connection_id": message.connection_id,
+            }            
+            notify_message_queue.put(response_socket_message, block=True) 
+            if need_notify_job_done: 
+                notify_message_queue.put(job_done, block=True)      
+        return response
 
 
 @api.get("/version")
@@ -487,14 +567,9 @@ async def process_socket_message(data: dict, websocket: WebSocket, client_id: st
         user_message = Message(**data["data"])
         user_message.user_id = user_id
         session_id = data["data"].get("session_id", None)
-        workflow_id = data["data"].get("workflow_id", None)
-        response = await run_session_workflow(message=user_message, session_id=session_id, workflow_id=workflow_id)
-        response_socket_message = {
-            "type": "agent_response",
-            "data": response,
-            "connection_id": client_id,
-        }
-        await websocket_manager.send_message(response_socket_message, websocket)
+        workflow_id = data["data"].get("workflow_id", None)    
+        # modify by ymc: 修改为调用内部方法 
+        await asyncio.to_thread(block_run_session_workflow, message=user_message, session_id=session_id, workflow_id=workflow_id, notify_message_queue=message_queue)        
 
 
 @api.websocket("/ws/{client_id}")

@@ -48,6 +48,7 @@ class AutoGenChatManager:
         workflow: Any = None,
         connection_id: Optional[str] = None,
         user_dir: Optional[str] = None,
+        send_message_function: Optional[callable] = None,  # add by ymc
         **kwargs,
     ) -> Message:
         """
@@ -78,7 +79,7 @@ class AutoGenChatManager:
             workflow=workflow,
             history=history,
             work_dir=work_dir,
-            send_message_function=self.send,
+            send_message_function=send_message_function, # modify by ymc: replace self.send, to support sse
             connection_id=connection_id,
         )
 
@@ -118,6 +119,7 @@ class AutoGenChatManager:
             tool_calls=output.get("tool_calls", None),
             meta=json.dumps(metadata, ensure_ascii=False),
             session_id=message.session_id,
+            connection_id=connection_id, # modify by ymc, 记录connection_id
         )
 
         return output_message
