@@ -98,7 +98,7 @@ class AutoGenChatManager:
             
         start_time = time.time()
         # modify by ymc: 从传str改为传
-        workflow_manager.run(message={"role":message.role, "content":message.content, "function_call":message.function_call, "tool_calls":message.tool_calls, "tool_responses": message.tool_responses}, clear_history=False)
+        workflow_manager.run(message={"role":message.role, "content":message.content, "function_call":message.function_call, "tool_calls":message.tool_calls, "tool_responses": message.tool_responses, "meta": message.meta}, clear_history=False)
         end_time = time.time()
 
         metadata = {
