@@ -409,15 +409,20 @@ async def get_linked_workflow_agents(workflow_id: int, agent_type: str):
 
 
 @api.get("/sessions")
-async def list_sessions(request: Request):
+async def list_sessions(request: Request, workflow_id: int=None, name: str=None):
     """List all sessions for a user"""
     filters = {"user_id": request.user.identity}
+    if workflow_id:
+        filters["workflow_id"] = workflow_id
+    if name:
+        filters["name"] = name
     return list_entity(Session, filters=filters)
 
 
 @api.post("/sessions")
-async def create_session(session: Session):
+async def create_session(session: Session, request: Request):
     """Create a new session"""
+    session.user_id = request.user.identity
     return create_entity(session, Session)
 
 
