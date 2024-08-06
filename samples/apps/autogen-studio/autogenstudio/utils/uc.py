@@ -11,7 +11,7 @@ def verify_authorization(conn: HTTPConnection) -> Tuple[List[str], FastAPIUser]:
     if not os.environ.get("UC_APP_CODE", None):
         # 没配置相当于mock，有所有权限
         return ["admin"], FastAPIUser(user_name="mock_user", nick_name="mock_user", real_name="mock_user", user_id="mock")
-    token_name = conn.headers.get("x-kish-token-key") or "token"
+    token_name = conn.headers.get("x-kish-token-key") or conn.cookies.get("x-kish-token-key") or "token"
     token = conn.query_params.get("access_token") or conn.headers.get(token_name) or conn.cookies.get(token_name)
     if not token:
         raise RuntimeError("用户未认证！")
