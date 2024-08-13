@@ -1,9 +1,13 @@
+from hashlib import sha1
 import json
 import logging
 import os
 import sys
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import uuid
+
+import requests
 import autogen
 from autogen.agentchat.agent import Agent
 from autogen.cache.cache import Cache
@@ -19,6 +23,11 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
         self.message_processor = message_processor        
         self.context = context
         self.register_reply(Agent, EnPerceptionCvteAutomaticBoxAgent._en_generate_reply)
+        self.url = os.environ["HTTP_API_URL_CVTE_AUTOMATIC_BOX"]
+        self.app_id = os.environ["CVTE_BOX_ACCESS_APP_ID"]
+        self.api_key = os.environ["CVTE_BOX_ACCESS_KEY_ID"]
+        self.secret_key = os.environ["CVTE_BOX_ACCESS_KEY_SECRET"]
+
 
     def _en_generate_reply(
         self,
@@ -28,37 +37,70 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
     ) -> Tuple[bool, Union[str, Dict, None]]:
         message = messages[-1]
         img_base64 = resolve_user_image_date(message, self.context)        
-        
-        # 获取当前时间（东8区）
-        timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+                
+        task_id = str(uuid.uuid4())
         body_params = {
-                "image_base64":f"{img_base64}",  
-                "anchor":[0,0],
-                "type": 1
-            }        
-        with Cache.disk("tal_automatic_box", ".cache") as cache_client:
-            key = get_key(body_params)
+            "im_base64": img_base64, 
+            "task_id": task_id
+        }        
+        with Cache.disk("cvte_automatic_box", ".cache") as cache_client:
+            key = get_key({"im_base64": img_base64})
 
             response: str = cache_client.get(key, None)
             if response:
                 return True, response
-
-            result = send_request(os.environ["TAL_ACCESS_KEY_ID"], os.environ["TAL_ACCESS_KEY_SECRET"], timestamp, os.environ["HTTP_API_URL_AUTOMATIC_BOX"], {}, body_params, "POST", "application/json")
-            result = json.loads(result)
-            if result["code"] == 5000001 or result["code"] == 4011005  or result["code"] == 4011007:
-                # https://openai.100tal.com/documents/article/page?fromWhichSys=console&id=73
+            t = int(time.time())
+            need_sign_str = "t={0}&aid={1}&akey={2}&skey={3}".format(t, self.app_id, self.api_key, self.secret_key)
+            sign = sha1(need_sign_str.encode("utf8")).hexdigest()
+            headers = {
+                "X-C-AppId": self.app_id,
+                "X-C-ApiKey": self.api_key,
+                "X-C-Signature": sign,
+                "X-C-AuthMode": "signature",
+                "X-C-Timestamp": str(t)
+            }
+            data = json.dumps(body_params)
+            result = requests.post(self.url, data=data, headers=headers)
+            result = json.loads(result.text)
+            if result["statusCode"] == -300:
+                # TODO 需要重试的状态码
                 # retry
                 logging.error(
-                            f"request {os.environ['HTTP_API_URL_AUTOMATIC_BOX']} error, code: {result['code']}. will retry..."
+                            f"request {self.url} error, code: {result['code']}. will retry..."
                         )
                 time.sleep(3)
-                timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
-                result = send_request(os.environ["TAL_ACCESS_KEY_ID"], os.environ["TAL_ACCESS_KEY_SECRET"], timestamp, os.environ["HTTP_API_URL_AUTOMATIC_BOX"], {}, body_params, "POST", "application/json")
-                result = json.loads(result)
+                t = int(time.time())
+                need_sign_str = "t={0}&aid={1}&akey={2}&skey={3}".format(t, self.app_id, self.api_key, self.secret_key)
+                sign = sha1(need_sign_str.encode("utf8")).hexdigest()
+                headers = {
+                    "X-C-AppId": self.app_id,
+                    "X-C-ApiKey": self.api_key,
+                    "X-C-Signature": sign,
+                    "X-C-AuthMode": "signature",
+                    "X-C-Timestamp": str(t)
+                }
+                task_id = str(uuid.uuid4())
+                body_params = {
+                    "im_base64": img_base64, 
+                    "task_id": task_id
+                }     
+                data = json.dumps(body_params)
+                result = requests.post(self.url, data=data, headers=headers)
+                result = json.loads(result.text)
 
-            if result["code"] != 20000:
-                raise RuntimeError('图片题目分割失败')        
-            automatic_box_items = [{"item_index": index+1, "item_position": item["item_position"], "item_position_show": item["item_position_show"]} for index, item in enumerate(result["data"]["data"])]
+            if result["statusCode"] != 0:
+                raise RuntimeError('图片题目分割失败')    
+            automatic_box_items = []
+            for index, item in enumerate(result["data"]["result"]):
+                left_top, bottom_down =  item["exercise_body_box"].split(';')[:2]
+                left_top = left_top.split(',')
+                left_top_x = int(left_top[0])
+                left_top_y = int(left_top[1])
+                bottom_down = bottom_down.split(',')    
+                bottom_down_x = int(bottom_down[0])
+                bottom_down_y = int(bottom_down[1])
+                automatic_box_items.append({"item_index": index+1,"item_position_show": [[left_top_x,left_top_y],[left_top_y,bottom_down_x],[bottom_down_x,bottom_down_y],[bottom_down_y,left_top_x]]})
+            
             response = json.dumps({
                 "msg_type": "agent_message_automatic_box",
                 "automatic_box_items": automatic_box_items
