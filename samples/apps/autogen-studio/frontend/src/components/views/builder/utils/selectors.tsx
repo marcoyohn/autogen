@@ -329,13 +329,31 @@ export const AgentTypeSelector = ({
     {
       label: "Custom Agent: ExamPreTreatAgent",
       value: "en_exam.ExamPreTreatAgent",
-      description: <>Plan and generate code to solve user tasks</>,
+      description: <>en exam pretreat task</>,
       icon: <CodeBracketSquareIcon className={iconClass} />,
     },
     {
       label: "Custom Agent: ExamGeometryCreateAgent",
       value: "en_exam.ExamGeometryCreateAgent",
-      description: <>Plan and generate code to solve user tasks</>,
+      description: <>en exam geometry crate task</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
+    {
+      label: "Custom Agent: EnPerceptionRecognitionAgent",
+      value: "en_perception.EnPerceptionRecognitionAgent",
+      description: <>en perception recognition task</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
+    {
+      label: "Custom Agent: EnPerceptionHandWrittenEraseAgent",
+      value: "en_perception.EnPerceptionHandWrittenEraseAgent",
+      description: <>en perception hand written erase task</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
+    {
+      label: "Custom Agent: EnPerceptionGeometryCreateAgent",
+      value: "en_perception.EnPerceptionGeometryCreateAgent",
+      description: <>en perception geometry create task</>,
       icon: <CodeBracketSquareIcon className={iconClass} />,
     },
   ];

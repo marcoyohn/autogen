@@ -472,7 +472,7 @@ def load_plugins_module(base_path, module_name, type_name):
     if module is None:
         spec = importlib.util.spec_from_file_location(module_full_name, base_path + "/" + module_name + "/" + type_name + ".py")
         module = importlib.util.module_from_spec(spec)
-        sys.modules[module_full_name] = module
         spec.loader.exec_module(module)
+        sys.modules[module_full_name] = module
     
     return getattr(module, type_name)
