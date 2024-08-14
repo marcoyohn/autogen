@@ -42,7 +42,7 @@ class EnPerceptionTalAutomaticBoxAgent(autogen.AssistantAgent):
 
             response: str = cache_client.get(key, None)
             if response:
-                return True, response
+                return True, {"role": "assistant","content": response}
 
             result = send_request(os.environ["TAL_ACCESS_KEY_ID"], os.environ["TAL_ACCESS_KEY_SECRET"], timestamp, os.environ["HTTP_API_URL_AUTOMATIC_BOX"], {}, body_params, "POST", "application/json")
             result = json.loads(result)
@@ -65,7 +65,7 @@ class EnPerceptionTalAutomaticBoxAgent(autogen.AssistantAgent):
                 "automatic_box_items": automatic_box_items
             })
             cache_client.set(key, response)
-            return True, response
+            return True, {"role": "assistant","content": response}
 
     
     def receive(

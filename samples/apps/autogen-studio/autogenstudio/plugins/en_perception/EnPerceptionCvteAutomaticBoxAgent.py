@@ -48,7 +48,7 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
 
             response: str = cache_client.get(key, None)
             if response:
-                return True, response
+                return True, {"role": "assistant","content": response}
             t = int(time.time())
             need_sign_str = "t={0}&aid={1}&akey={2}&skey={3}".format(t, self.app_id, self.api_key, self.secret_key)
             sign = sha1(need_sign_str.encode("utf8")).hexdigest()
@@ -106,7 +106,7 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
                 "automatic_box_items": automatic_box_items
             })
             cache_client.set(key, response)
-            return True, response
+            return True, {"role": "assistant","content": response}
 
     
     def receive(

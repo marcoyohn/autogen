@@ -80,7 +80,7 @@ class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
         for future in concurrent.futures.as_completed(futures):
             future.result()
 
-        return True, json.dumps(box, ensure_ascii=False)
+        return True, {"role": "assistant","content": json.dumps(box, ensure_ascii=False)}
 
     def run_llm_tools_solve(self, agent: ConversableAgent, message: Dict, box_item: Dict):
         tools_solve_result = self.initiate_chat(agent, message=message, max_turns=1)

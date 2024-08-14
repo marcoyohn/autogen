@@ -72,7 +72,7 @@ class EnPerceptionLlmToolsSolveAgent(autogen.AssistantAgent):
         elif extracted_response == "null":
             extracted_response = ""
 
-        return True, json.dumps(extracted_response, ensure_ascii=False)
+        return True, {"role": "assistant","content": json.dumps(extracted_response, ensure_ascii=False)}
 
 
     def receive(
