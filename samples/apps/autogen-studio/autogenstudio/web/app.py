@@ -356,6 +356,7 @@ async def run_workflow_sse(message: Message, workflow_id: int, request: Request=
     return StreamingResponse(
         adapter_queue(sse_queue),
         media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
 
 @api.post("/workflows")
@@ -460,6 +461,7 @@ async def run_session_workflow_sse(message: Message, session_id: int, workflow_i
     return StreamingResponse(
         adapter_queue(sse_queue),
         media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
 
 # add by ymc
