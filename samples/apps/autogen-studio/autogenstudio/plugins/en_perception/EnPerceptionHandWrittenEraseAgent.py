@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import requests
 import autogen
 from autogen.agentchat.agent import Agent
+from autogen.agentchat.contrib.img_utils import convert_base64_to_data_uri, get_image_data
 from autogen.cache.cache import Cache
 from autogen.oai.openai_utils import get_key
 
@@ -22,7 +23,7 @@ class EnPerceptionHandWrittenEraseAgent(autogen.AssistantAgent):
         super().__init__(*args, **kwargs)
         self.message_processor = message_processor        
         self.context = context
-        self.register_reply(Agent, EnPerceptionHandWrittenEraseAgent._en_generate_reply)
+        self.register_reply(Agent, EnPerceptionHandWrittenEraseAgent._en_generate_reply, position=2)
 
         self.url = os.environ['HTTP_API_URL_TI_HAND_WRITTEN_ERASE']
         self.app_id = os.environ["TI_ACCESS_KEY_ID"]
@@ -44,14 +45,14 @@ class EnPerceptionHandWrittenEraseAgent(autogen.AssistantAgent):
         with Cache.disk("tal_automatic_box", ".cache") as cache_client:
             url_query = "dewarp=0&binarization=1"
             key = get_key({"url_query": url_query, "image_base64": image_base64})
-            response: str = cache_client.get(key, None)
-            if response:
-                return True, response
+            image_data: str = cache_client.get(key, None)
+            if image_data:
+                return True, {"role": "assistant","content": json.dumps({"msg_type": "agent_message_hand_written_erase", "image_url": { "url": convert_base64_to_data_uri(image_data)}})}
             head = {}
             head['x-ti-app-id'] = self.app_id
             head['x-ti-secret-code'] = self.secret_code
             result = requests.post(f'{self.url}?{url_query}', data=image_bytes, headers=head)
-            result = json.loads(result)
+            result = json.loads(result.text)
             if result["code"] == -300: 
                 # TODO qps limit retry
                 # https://www.textin.com/document/text_auto_removal
@@ -61,13 +62,13 @@ class EnPerceptionHandWrittenEraseAgent(autogen.AssistantAgent):
                         )
                 time.sleep(3)
                 result = requests.post(f'{self.url}?{url_query}', data=image_bytes, headers=head)
-                result = json.loads(result)
+                result = json.loads(result.text)
 
             if result["code"] != 200:
-                raise RuntimeError('擦除手写文字失败')        
-            response = result["result"]["image"]
-            cache_client.set(key, response)
-            return True, response
+                raise RuntimeError('擦除手写痕迹失败')
+            image_data = result["result"]["image"]
+            cache_client.set(key, image_data)
+            return True, {"role": "assistant","content": json.dumps({"msg_type": "agent_message_hand_written_erase", "image_url": { "url": convert_base64_to_data_uri(image_data)}})}
 
     
     def receive(
