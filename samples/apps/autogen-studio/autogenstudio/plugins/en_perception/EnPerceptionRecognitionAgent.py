@@ -80,12 +80,13 @@ class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
         for future in concurrent.futures.as_completed(futures):
             future.result()
 
-        return True, {"role": "assistant","content": json.dumps(box, ensure_ascii=False)}
+        return True, {"role": "assistant","content": "TERMINATE"}
 
     def run_llm_tools_solve(self, agent: ConversableAgent, message: Dict, box_item: Dict):
-        tools_solve_result = self.initiate_chat(agent, message=message, max_turns=1)
-        tools_solve = json.loads(tools_solve_result.summary)
-        box_item["tools"] = tools_solve
+        self.initiate_chat(agent, message=message, max_turns=1)
+        # 不需要汇集所有的结果
+        # tools_solve_result = self.initiate_chat(agent, message=message, max_turns=1)
+        # tools_solve = json.loads(tools_solve_result.summary)
 
     def receive(
         self,
