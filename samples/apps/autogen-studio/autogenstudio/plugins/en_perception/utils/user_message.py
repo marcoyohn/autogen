@@ -94,7 +94,7 @@ def resolve_user_image(message: Dict, context: Dict) -> Image.Image:
             if image_cache:
                 pil_image = get_pil_image(image_cache)
             else:
-                pil_image = get_pil_image(image_cache)
+                pil_image = get_pil_image(image_url)
                 cache_client.set(filekey, get_image_data(pil_image, use_b64=True))                
     else:
         pil_image = get_pil_image(image)
