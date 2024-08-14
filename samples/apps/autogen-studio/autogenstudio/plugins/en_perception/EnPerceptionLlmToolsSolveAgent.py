@@ -16,10 +16,11 @@ from utils.user_message import replace_user_image_from_context
 ExamSolveTypeSymbol = Literal["solve", "math_expr"]
 
 class EnPerceptionLlmToolsSolveAgent(autogen.AssistantAgent):
-    def __init__(self, message_processor=None, context=None, *args, **kwargs):
+    def __init__(self, message_processor=None, context=None, item_index: int = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.message_processor = message_processor     
         self.context = context   
+        self.item_index = item_index
         # Override the `generate_oai_reply`
         self.replace_reply_func(ConversableAgent.generate_oai_reply, EnPerceptionLlmToolsSolveAgent.generate_oai_reply)
         self.replace_reply_func(
@@ -72,7 +73,7 @@ class EnPerceptionLlmToolsSolveAgent(autogen.AssistantAgent):
         elif extracted_response == "null":
             extracted_response = ""
 
-        return True, {"role": "assistant","content": json.dumps(extracted_response, ensure_ascii=False)}
+        return True, {"role": "assistant","content": json.dumps({"msg_type": "agent_message_tool_resolve_patch", "automatic_box_items": [{"item_index": self.item_index, "tools": extracted_response}]}, ensure_ascii=False)}
 
 
     def receive(

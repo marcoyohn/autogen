@@ -73,7 +73,7 @@ class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
                         ]
                     }
             # call exam solve agent     
-            tools_solve_agent = EnPerceptionLlmToolsSolveAgent(name="en_perception_recognition_assistant_tools_solve", message_processor=self.message_processor, context=self.context, llm_config=self.llm_config, system_message=prompt.tools_solve_prompt)
+            tools_solve_agent = EnPerceptionLlmToolsSolveAgent(name="en_perception_recognition_assistant_tools_solve", message_processor=self.message_processor, context=self.context, llm_config=self.llm_config, system_message=prompt.tools_solve_prompt, item_index=box_item["item_index"])
             futures.append(EnPerceptionRecognitionAgent.executor.submit(lambda agent, message, box_item: self.run_llm_tools_solve(agent, message, box_item), tools_solve_agent, message, box_item))       
 
         # 获取已完成的任务结果
