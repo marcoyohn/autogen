@@ -21,19 +21,23 @@ def resolve_user_image_date_uri(message: Dict, context: Dict) -> str:
     image_url_dict = images[0]["image_url"]
     image_url = image_url_dict["url"]
     image_context_key = image_url_dict.get("context_key", None)
-    filekey = image_url_dict.get("filekey", None) or image_url
+    filekey = image_url_dict.get("filekey", None)
     image = None
     if image_context_key:
         image = context[image_context_key]
     if image is None:
-        with Cache.disk("user_message_img", ".cache") as cache_client:
-            image_cache: str = cache_client.get(filekey, None)
-            if image_cache:
-                image_data_uri = convert_base64_to_data_uri(image_cache)
-            else:
-                image_data = get_image_data(image_url, use_b64=True)
-                image_data_uri = convert_base64_to_data_uri(image_data)
-                cache_client.set(filekey, image_data)
+        if filekey is None:
+            image_data = get_image_data(image_url, use_b64=True)
+            image_data_uri = convert_base64_to_data_uri(image_data)
+        else:
+            with Cache.disk("user_message_img", ".cache") as cache_client:
+                image_cache: str = cache_client.get(filekey, None)
+                if image_cache:
+                    image_data_uri = convert_base64_to_data_uri(image_cache)
+                else:
+                    image_data = get_image_data(image_url, use_b64=True)
+                    image_data_uri = convert_base64_to_data_uri(image_data)
+                    cache_client.set(filekey, image_data)
     else:
         image_data_uri = pil_to_data_uri(get_pil_image(image))
 
@@ -53,18 +57,21 @@ def resolve_user_image_date(message: Dict, context: Dict) -> str:
     image_url_dict = images[0]["image_url"]
     image_url = image_url_dict["url"]
     image_context_key = image_url_dict.get("context_key", None)
-    filekey = image_url_dict.get("filekey", None) or image_url
+    filekey = image_url_dict.get("filekey", None)
     image = None
     if image_context_key:
         image = context[image_context_key]
     if image is None:
-        with Cache.disk("user_message_img", ".cache") as cache_client:
-            image_cache: str = cache_client.get(filekey, None)
-            if image_cache:
-                image_data = get_image_data(image_cache, use_b64=True)
-            else:
-                image_data = get_image_data(image_url, use_b64=True)
-                cache_client.set(filekey, image_data)                
+        if filekey is None:
+            image_data = get_image_data(image_url, use_b64=True)
+        else:
+            with Cache.disk("user_message_img", ".cache") as cache_client:
+                image_cache: str = cache_client.get(filekey, None)
+                if image_cache:
+                    image_data = get_image_data(image_cache, use_b64=True)
+                else:
+                    image_data = get_image_data(image_url, use_b64=True)
+                    cache_client.set(filekey, image_data)                
     else:
         image_data = get_image_data(image, use_b64=True)
 
@@ -84,18 +91,21 @@ def resolve_user_image(message: Dict, context: Dict) -> Image.Image:
     image_url_dict = images[0]["image_url"]
     image_url = image_url_dict["url"]
     image_context_key = image_url_dict.get("context_key", None)
-    filekey = image_url_dict.get("filekey", None) or image_url
+    filekey = image_url_dict.get("filekey", None)
     image = None
     if image_context_key:
         image = context[image_context_key]
     if image is None:
-        with Cache.disk("user_message_img", ".cache") as cache_client:
-            image_cache: str = cache_client.get(filekey, None)
-            if image_cache:
-                pil_image = get_pil_image(image_cache)
-            else:
-                pil_image = get_pil_image(image_url)
-                cache_client.set(filekey, get_image_data(pil_image, use_b64=True))                
+        if filekey is None:
+            pil_image = get_pil_image(image_url)
+        else:
+            with Cache.disk("user_message_img", ".cache") as cache_client:
+                image_cache: str = cache_client.get(filekey, None)
+                if image_cache:
+                    pil_image = get_pil_image(image_cache)
+                else:
+                    pil_image = get_pil_image(image_url)
+                    cache_client.set(filekey, get_image_data(pil_image, use_b64=True))                
     else:
         pil_image = get_pil_image(image)
 
@@ -104,20 +114,24 @@ def resolve_user_image(message: Dict, context: Dict) -> Image.Image:
 def replace_user_image_from_context(image_url_dict: Dict, context: Dict) -> Dict:   
     image_url = image_url_dict["url"]
     image_context_key = image_url_dict.get("context_key", None)
-    filekey = image_url_dict.get("filekey", None) or image_url
+    filekey = image_url_dict.get("filekey", None)
     image = None
     if image_context_key:
         image = context[image_context_key]
     if image is None:
-        with Cache.disk("user_message_img", ".cache") as cache_client:
-            image_cache: str = cache_client.get(filekey, None)
-            if image_cache:
-                image_data_uri = convert_base64_to_data_uri(image_cache)
-            else:
-                image_data = get_image_data(image_url, use_b64=True)
-                image_data_uri = convert_base64_to_data_uri(image_data)
-                cache_client.set(filekey, image_data)
+        if filekey is None:
+            image_data = get_image_data(image_url, use_b64=True)
+            image_data_uri = convert_base64_to_data_uri(image_data)
+        else:
+            with Cache.disk("user_message_img", ".cache") as cache_client:
+                image_cache: str = cache_client.get(filekey, None)
+                if image_cache:
+                    image_data_uri = convert_base64_to_data_uri(image_cache)
+                else:
+                    image_data = get_image_data(image_url, use_b64=True)
+                    image_data_uri = convert_base64_to_data_uri(image_data)
+                    cache_client.set(filekey, image_data)
     else:
         image_data_uri = pil_to_data_uri(get_pil_image(image))
 
-    return {**image_url_dict, "url": image_data_uri}
+    return {"url": image_data_uri}
