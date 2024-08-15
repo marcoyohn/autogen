@@ -72,8 +72,16 @@ class EnPerceptionLlmToolsSolveAgent(autogen.AssistantAgent):
             extracted_response = model_dump(extracted_response)
         elif extracted_response == "null":
             extracted_response = ""
+        try:
+            tools = json.loads(extracted_response)
+            if not isinstance(tools, List):
+                tools = []
+                logging.error(f"tools response not array: {extracted_response}")
+        except Exception as e:
+            tools = []
+            logging.error(f"tools response not json: {extracted_response}")
 
-        return True, {"role": "assistant","content": json.dumps({"msg_type": "agent_message_tool_resolve_patch", "automatic_box_items": [{"item_index": self.item_index, "tools": extracted_response}]}, ensure_ascii=False)}
+        return True, {"role": "assistant","content": json.dumps({"msg_type": "agent_message_tool_resolve_patch", "automatic_box_items": [{"item_index": self.item_index, "tools": tools}]}, ensure_ascii=False)}
 
 
     def receive(
