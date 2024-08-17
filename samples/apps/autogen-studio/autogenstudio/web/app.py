@@ -1,5 +1,6 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import json
 import os
 import queue
 import threading
@@ -7,18 +8,20 @@ import time
 import traceback
 from contextlib import asynccontextmanager
 from typing import Any, Optional
+from urllib.parse import quote
 import uuid
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import HTTPConnection
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import jwt
 from loguru import logger
 from openai import OpenAIError
 
 from autogen.function_utils import serialize_to_str
+from autogen.oss.Osss import OssConfig, Osss, OsssConfig
 
 from ..chatmanager import AutoGenChatManager, WebSocketConnectionManager
 from ..database import workflow_from_id
@@ -59,6 +62,7 @@ def message_handler():
                 logger.info(
                     f"Sending message to connection_id: {message['connection_id']}. Connection ID: {socket_client_id}"
                 )
+                # TODO 是否需要转换image_url的oss格式为url格式
                 asyncio.run(websocket_manager.send_message(message, connection))
             else:
                 logger.info(
@@ -84,6 +88,19 @@ async def lifespan(app: FastAPI):
     print("***** App started *****")
     managers["chat"] = AutoGenChatManager(message_queue=message_queue)
     # dbmanager.create_db_and_tables()
+
+    # add by ymc 
+    oss_list_config = os.environ.get("OSS_LIST", None)
+    if oss_list_config:
+        # [{"app_id":"10523", "base_url":"https://cstore.test.seewo.com", "key_prefix":"she-agent/", "oss_type":"cstore", "is_default":true},{"app_id":"10410", "base_url":"https://cstore.test.seewo.com", "key_prefix":"she-models/", "oss_type":"cstore", "is_default":false}]
+        oss_list_config = json.loads(oss_list_config)
+        oss_list = []
+        for oss_config in oss_list_config:
+            oss_list.append(OssConfig(**oss_config))        
+        osss_config = OsssConfig(oss_list=oss_list)
+        Osss.buildDefault(osss_config)
+    else:
+        raise RuntimeError("请配置OSS_LIST")
 
     yield
     # Close all active connections
@@ -342,6 +359,7 @@ async def run_workflow(message: Message, workflow_id: int, request: Request=None
         raise RuntimeError("message with session id, will be call /sessions/{session_id}/workflow/{workflow_id}/run")
     if request:
         message.user_id = request.user.identity
+    # TODO 转换oss格式为url
     return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=None, workflow_id=workflow_id)
 
 @api.post("/workflows/{workflow_id}/run/sse")
@@ -447,6 +465,7 @@ async def run_session_workflow(message: Message, session_id: int, workflow_id: i
     if request:
         message.user_id = request.user.identity
     message.session_id = session_id
+    # TODO 转换oss格式为url
     return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id)
 
 @api.post("/sessions/{session_id}/workflow/{workflow_id}/run/sse")
@@ -469,7 +488,8 @@ def adapter_queue(queue: queue.Queue):
     while True:
         next_item = queue.get(block=True)  # blocks until an input is available
         if next_item is job_done:
-            break        
+            break
+        # TODO 是否需要转换image_url的oss格式为url格式
         yield f"data: {serialize_to_str(next_item)}\n\n"
 
 def block_run_session_workflow(message: Message, session_id: int, workflow_id: int, notify_message_queue: Optional[queue.Queue]=None, need_notify_job_done: bool = False):
@@ -602,3 +622,38 @@ async def ws_token(request: Request):
     """get ws token, jwt format"""
     payload = {"user": {key: value for key, value in request.user.__dict__.items() if not key.startswith('__')}, "scopes": request.auth.scopes, 'exp': int(time.time()) + 300}
     return "jwt:" + jwt.encode(payload, os.environ["WS_TOKEN_JWT_SECRET"], algorithm=os.environ["WS_TOKEN_JWT_ALGORITHM"])
+
+# add by ymc
+@api.get("/osss/request-upload-url")
+async def request_oss_upload_url(request: Request, file_name: str):
+    if "@" in file_name:
+        raise RuntimeError("文件名不能包含@特殊字符")
+    
+    oss = Osss.default().defaultOss()
+    policy = await oss.async_get_upload_policy()
+    file_key=f"{oss.key_prefix()}{str(uuid.uuid4())}/{quote(file_name)}"
+    ret: Dict[str, Any] = {"upload_url": policy.upload_url, "method": policy.method, "oss_key": f"{file_key}@{oss.app_id()}"}
+    ret["form_fields"] = {**policy.form_fields, "key": file_key}
+    ret["header_fields"] = {**policy.header_fields}
+
+    return ret
+
+# add by ymc
+@api.get("/osss/request-download-url")
+async def request_oss_download_url(request: Request, oss_key: str, expire_seconds: Optional[int]=None):
+    file_key, app_id = oss_key.split("@")
+    oss = Osss.default().getOss(app_id)
+    if oss is None:
+        raise RuntimeError("不支持的oss_key")
+    return await oss.async_get_download_url(file_key, expire_seconds or 3600)
+
+# add by ymc
+@api.get("/osss/redirect-download")
+async def redirect_download_oss_file(request: Request, oss_key: str, expire_seconds: Optional[int]=None):
+    file_key, app_id = oss_key.split("@")
+    oss = Osss.default().getOss(app_id)
+    if oss is None:
+        raise RuntimeError("不支持的oss_key")
+    download_url = await oss.async_get_download_url(file_key, expire_seconds or 3600)
+    return RedirectResponse(download_url)
+    

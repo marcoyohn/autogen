@@ -298,3 +298,27 @@ def message_formatter_pil_to_b64(messages: List[Dict]) -> List[Dict]:
         new_messages.append(message)
 
     return new_messages
+
+
+def get_image_suffix(image_data: Union[str,bytes]) -> str:
+    if isinstance(image_data, str):
+        if image_data.startswith('"') and image_data.endswith('"'):
+            image_data = image_data[1:-1]
+        if image_data.startswith("'") and image_data.endswith("'"):
+            image_data = image_data[1:-1]
+        
+        if re.match(r"data:image/(?:png|jpeg);base64,", image_data):
+            # A URI. Remove the prefix and decode the base64 string.
+            image_data = re.sub(r"data:image/(?:png|jpeg);base64,", "", image_data)
+        # Decode the base64 string
+        image_data = base64.b64decode(image_data)
+
+    if image_data.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    elif image_data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    elif image_data.startswith(b"GIF87a") or image_data.startswith(b"GIF89a"):
+        return "gif"
+    elif image_data.startswith(b"RIFF") and image_data[8:12] == b"WEBP":
+        return "webp"
+    return "jpeg"

@@ -576,7 +576,7 @@ class ConversableAgent(LLMAgent):
         # create oai message to be appended to the oai conversation that can be passed to oai directly.
         oai_message = {
             k: message[k]
-            for k in ("content", "function_call", "tool_calls", "tool_responses", "tool_call_id", "name", "context")
+            for k in ("content", "function_call", "tool_calls", "tool_responses", "tool_call_id", "name", "context", "meta", "busi_type") # modify by ymc， meta busi_type字段
             if k in message and message[k] is not None
         }
         if "content" not in oai_message:

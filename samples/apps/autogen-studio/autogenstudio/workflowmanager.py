@@ -1,14 +1,21 @@
+import base64
 from datetime import datetime
 import inspect
 import os
 from os import path
 from typing import Any, Callable, List, Optional, Protocol, Tuple, Type, Union, Dict, runtime_checkable
+from uuid import uuid4
 
 import autogen
 from autogen.agentchat.agent import LLMAgent
 from autogen.agentchat.chat import ChatResult
+from autogen.agentchat.contrib.img_utils import get_image_suffix
 from autogen.agentchat.conversable_agent import ConversableAgent
 from autogen.cache.abstract_cache_base import AbstractCache
+from autogen.cache.cache import Cache
+from autogen.oai.openai_utils import get_key
+from autogen.oss.Osss import Osss
+from autogen.oss.oss_utils import upload_image_data
 
 from .datamodel import (
     Agent,
@@ -128,6 +135,17 @@ class WorkflowManager:
         }
         # if the agent will respond to the message, or the message is sent by a groupchat agent. This avoids adding groupchat broadcast messages to the history (which are sent with request_reply=False), or when agent populated from history
         if request_reply is not False or sender_type == "groupchat":
+            # add by ymc
+            # message image_url.url如果是data:开头，上传到cstore，转换成oss:file_key@app_id格式
+            # hash file_key，避免重复上传，先实现本地hash
+            if isinstance(message["content"], list):
+                for item in message["content"]:
+                    if isinstance(item, dict) and "image_url" in item:
+                        image_data: str = item["image_url"]["url"]
+                        if image_data.startswith("data:"):
+                            file_key, app_id = upload_image_data(image_data, cacheable=True, file_key_only=True)                     
+                            item["image_url"]["url"] = f"oss:{file_key}@{app_id}" 
+                                
             self.agent_history.append(message_payload)  # add to history
             if self.send_message_function:  # send over the message queue
                 socket_msg = SocketMessage(
