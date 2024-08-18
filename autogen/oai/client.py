@@ -734,6 +734,15 @@ class OpenAIWrapper:
                         continue  # filter is not passed; try the next config
             try:
                 request_ts = get_current_ts()
+                # add by ymc: add extra_headers user_id for request limit
+                if hasattr(agent, "context"): 
+                    user_id = agent.context.get("user_id", None)
+                    if user_id is not None:
+                        extra_headers = params.get("extra_headers", None)
+                        if extra_headers is None:
+                            extra_headers = {"x-open-userId": agent.context["user_id"]}
+                            params["extra_headers"] = extra_headers
+
                 response = client.create(params)
             except APITimeoutError as err:
                 logger.debug(f"config {i} timed out", exc_info=True)
