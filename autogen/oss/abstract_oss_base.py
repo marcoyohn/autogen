@@ -6,9 +6,11 @@ from typing import Any, Dict, List, Protocol, Tuple
 
 class AbstractOss(Protocol):
 
+    @property
     def app_id(self) -> str:
         ...
 
+    @property
     def key_prefix(self) -> str:
         ...
 

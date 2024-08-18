@@ -17,10 +17,11 @@ class CstoreOss(AbstractOss):
         self._internal_upload_policy_url = f"{base_url}/cstore/api/v3/internal-upload-policy"
         self._internal_download_url = f"{base_url}/cstore/api/v3/internal-download-url"
         
-    
+    @property
     def app_id(self) -> str:
         return self._app_id
 
+    @property
     def key_prefix(self) -> str:
         return self._key_prefix
 
@@ -28,7 +29,8 @@ class CstoreOss(AbstractOss):
         response = httpx.post(
             f"{self._download_url}?appId={self._app_id}&expireSeconds={expire_seconds}",
             json=[file_key],
-            headers={"Content-Type": "application/json"}  
+            headers={"Content-Type": "application/json"},
+            timeout=60.0,  
         )
         response.raise_for_status() 
         result = response.json()
@@ -45,7 +47,8 @@ class CstoreOss(AbstractOss):
             response = await client.post(
                 f"{self._download_url}?appId={self._app_id}&expireSeconds={expire_seconds}",
                 json=[file_key],
-                headers={"Content-Type": "application/json"}  
+                headers={"Content-Type": "application/json"},
+                timeout=60.0,  
             )
             response.raise_for_status() 
             result = response.json()
@@ -67,7 +70,8 @@ class CstoreOss(AbstractOss):
         response = httpx.post(
             self._internal_download_url,
             json={"internal": True, "appId": self._app_id, "srcFileKeyList": [file_key]},
-            headers={"Content-Type": "application/json"}  
+            headers={"Content-Type": "application/json"},
+            timeout=60.0,  
         )
         response.raise_for_status() 
         result = response.json()
@@ -80,7 +84,8 @@ class CstoreOss(AbstractOss):
             response = await client.post(
                 self._internal_download_url,
                 json={"internal": True, "appId": self._app_id, "srcFileKeyList": [file_key]},
-                headers={"Content-Type": "application/json"}  
+                headers={"Content-Type": "application/json"},
+                timeout=60.0,  
             )
             response.raise_for_status() 
             result = response.json()
@@ -97,7 +102,8 @@ class CstoreOss(AbstractOss):
     def get_upload_policy(self) -> "UploadPolicy":
         response = httpx.get(
             f"{self._upload_policy_url}?appId={self._app_id}",
-            headers={"Content-Type": "application/json"}  
+            headers={"Content-Type": "application/json"},
+            timeout=60.0,  
         )
         response.raise_for_status() 
         result = response.json()
@@ -123,7 +129,8 @@ class CstoreOss(AbstractOss):
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self._upload_policy_url}?appId={self._app_id}",
-                headers={"Content-Type": "application/json"}  
+                headers={"Content-Type": "application/json"},
+                timeout=60.0,  
             )
             response.raise_for_status() 
             result = response.json()
@@ -150,7 +157,8 @@ class CstoreOss(AbstractOss):
         response = httpx.post(
             self._internal_upload_policy_url,
             json={"internal": True, "appId": self._app_id},
-            headers={"Content-Type": "application/json"}  
+            headers={"Content-Type": "application/json"},
+            timeout=60.0,  
         )
         response.raise_for_status() 
         result = response.json()
@@ -177,7 +185,8 @@ class CstoreOss(AbstractOss):
             response = await client.post(
                 self._internal_upload_policy_url,
                 json={"internal": True, "appId": self._app_id},
-                headers={"Content-Type": "application/json"}  
+                headers={"Content-Type": "application/json"},
+                timeout=60.0, 
             )            
             response.raise_for_status() 
             result = response.json()
@@ -207,6 +216,7 @@ class CstoreOss(AbstractOss):
             policy.upload_url,
             data={**policy.form_fields, "key": real_file_key},
             files={"file": file_data},
+            timeout=60.0,
             # headers={"Content-Type": "multipart/form-data"}  不需要加这个，加了会报错
         )
         response.raise_for_status() 
@@ -222,6 +232,7 @@ class CstoreOss(AbstractOss):
                 policy.upload_url,
                 data={**policy.form_fields, "key": real_file_key},
                 files={"file": file_data},
+                timeout=60.0,
                 # headers={"Content-Type": "multipart/form-data"}  不需要加这个，加了会报错
             )
             response.raise_for_status() 
