@@ -24,6 +24,7 @@ from .datamodel import (
     SocketMessage,
 )
 from .utils import clear_folder, get_skills_from_prompt, load_code_execution_config, sanitize_model, load_plugins_module
+from .utils.user_message import *
 
 
 class WorkflowManager:
@@ -34,11 +35,12 @@ class WorkflowManager:
     def __init__(
         self,
         workflow: Dict,
+        context: Dict[str, Any],
         history: Optional[List[Message]] = None,
         work_dir: str = None,
         clear_work_dir: bool = True,
         send_message_function: Optional[callable] = None,
-        connection_id: Optional[str] = None,
+        connection_id: Optional[str] = None,        
     ) -> None:
         """
         Initializes the AutoGenFlow with agents specified in the config and optional
@@ -56,8 +58,8 @@ class WorkflowManager:
         if clear_work_dir:
             clear_folder(self.work_dir)
         self.workflow = workflow
-        self.sender = self.load(workflow.get("sender"))
-        self.receiver = self.load(workflow.get("receiver"))
+        self.sender = self.load(workflow.get("sender"), context)
+        self.receiver = self.load(workflow.get("receiver"), context)
         self.agent_history = []
 
         if history:
@@ -109,6 +111,7 @@ class WorkflowManager:
         request_reply: bool = False,
         silent: bool = False,
         sender_type: str = "agent",
+        context: Dict[str, Any] = None,
     ) -> None:
         """
         Processes the message and adds it to the agent history.
@@ -135,16 +138,10 @@ class WorkflowManager:
         }
         # if the agent will respond to the message, or the message is sent by a groupchat agent. This avoids adding groupchat broadcast messages to the history (which are sent with request_reply=False), or when agent populated from history
         if request_reply is not False or sender_type == "groupchat":
-            # add by ymc
-            # message image_url.url如果是data:开头，上传到cstore，转换成oss:file_key@app_id格式
-            # hash file_key，避免重复上传，先实现本地hash
-            if isinstance(message["content"], list):
-                for item in message["content"]:
-                    if isinstance(item, dict) and "image_url" in item:
-                        image_data: str = item["image_url"]["url"]
-                        if image_data.startswith("data:"):
-                            file_key, app_id = upload_image_data(image_data, cacheable=True, file_key_only=True)                     
-                            item["image_url"]["url"] = f"oss:{file_key}@{app_id}" 
+            # add by ymc: 转换url为oss格式   
+            message_content = message.get("content", None)   
+            if message_content is not None: 
+                ensure_user_image_oss(message_content, context)            
                                 
             self.agent_history.append(message_payload)  # add to history
             if self.send_message_function:  # send over the message queue
@@ -222,7 +219,7 @@ class WorkflowManager:
                 agent.config.system_message = get_default_system_message(agent.type) + "\n\n" + skills_prompt
         return agent
 
-    def load(self, agent: Any) -> autogen.Agent:
+    def load(self, agent: Any, context: Dict[str, Any]) -> autogen.Agent:
         """
         Loads an agent based on the provided agent specification.
 
@@ -240,12 +237,13 @@ class WorkflowManager:
         linked_agents = agent.get("agents", [])
         agent = self.sanitize_agent(agent)
         if agent.type == "groupchat":
-            groupchat_agents = [self.load(agent) for agent in linked_agents]
+            groupchat_agents = [self.load(agent, context) for agent in linked_agents]
             group_chat_config = self._serialize_agent(agent)
             group_chat_config["agents"] = groupchat_agents
             groupchat = autogen.GroupChat(**group_chat_config)
             agent = ExtendedGroupChatManager(
                 groupchat=groupchat,
+                context=context,
                 message_processor=self.process_message,
                 llm_config=agent.config.llm_config.model_dump(),
             )
@@ -255,11 +253,13 @@ class WorkflowManager:
             if agent.type == "assistant":
                 agent = ExtendedConversableAgent(
                     **self._serialize_agent(agent),
+                    context=context,
                     message_processor=self.process_message,
                 )
             elif agent.type == "userproxy":
                 agent = ExtendedConversableAgent(
                     **self._serialize_agent(agent),
+                    context=context,
                     message_processor=self.process_message,
                 )
             # add by ymc
@@ -267,7 +267,7 @@ class WorkflowManager:
                 agent_type_names = agent.agent_type_name.split(".")
                 agent_type = load_plugins_module(path.dirname(path.abspath(__file__)) + "/plugins", agent_type_names[0], agent_type_names[1])
                 if "message_processor" in inspect.signature(agent_type.__init__).parameters:
-                    agent = agent_type(**self._serialize_agent(agent), message_processor=self.process_message)
+                    agent = agent_type(**self._serialize_agent(agent), context=context, message_processor=self.process_message)
                 else:
                     raise ValueError(f"custom agent type: {agent.type}, must init with message_processor parameter")
             else:
@@ -316,12 +316,43 @@ def function_call_direct_reply(
 
 
 class ExtendedConversableAgent(autogen.ConversableAgent):
-    def __init__(self, message_processor=None, *args, **kwargs):
+    def __init__(self, context: Dict[str, Any], message_processor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.context = context
         self.message_processor = message_processor
         # add by ymc
+        # Override the `generate_oai_reply`
+        self.replace_reply_func(ConversableAgent.generate_oai_reply, ExtendedConversableAgent.ext_generate_oai_reply)
         self.register_reply(autogen.Agent, function_call_direct_reply)
 
+    def ext_generate_oai_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None]]:
+        # 处理图片oss格式转换        
+        message = messages[-1]
+        message_content = message.get("content", None)  
+        image_url_map: List[Tuple[Dict, str]] = []
+        if message_content is not None and isinstance(message_content, List):
+            for item in message_content:                    
+                if "image_url" in item:
+                    image = item["image_url"]
+                    image_data: str = image["url"]
+                    if image_data.startswith("oss:"):
+                        crop = image.get("crop", None)
+                        image_data_uri = resolve_user_image_date_uri(image_data[4:], self.context, crop=crop)
+                        image["url"] = image_data_uri 
+                        image_url_map.append((image, image_data))                  
+        ret = super().generate_oai_reply(messages=messages, sender=sender, config=config)
+        # 还原
+        for image_url_tuple in image_url_map:
+            image_url, oss_key = image_url_tuple
+            image_url["url"] = oss_key
+        
+        return ret
+    
     def receive(
         self,
         message: Union[Dict, str],
@@ -330,7 +361,7 @@ class ExtendedConversableAgent(autogen.ConversableAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)
 
 
@@ -338,8 +369,9 @@ class ExtendedConversableAgent(autogen.ConversableAgent):
 
 
 class ExtendedGroupChatManager(autogen.GroupChatManager):
-    def __init__(self, message_processor=None, *args, **kwargs):
+    def __init__(self, context: Dict[str, Any], message_processor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.context = context
         self.message_processor = message_processor
 
     def receive(
@@ -350,5 +382,5 @@ class ExtendedGroupChatManager(autogen.GroupChatManager):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="groupchat")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="groupchat", context=self.context)
         super().receive(message, sender, request_reply, silent)

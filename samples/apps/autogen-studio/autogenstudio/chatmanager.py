@@ -45,6 +45,7 @@ class AutoGenChatManager:
         self,
         message: Message,
         history: List[Dict[str, Any]],
+        context: Dict[str, Any],
         workflow: Any = None,
         connection_id: Optional[str] = None,
         user_dir: Optional[str] = None,
@@ -81,6 +82,7 @@ class AutoGenChatManager:
             work_dir=work_dir,
             send_message_function=send_message_function, # modify by ymc: replace self.send, to support sse
             connection_id=connection_id,
+            context=context,
         )
 
         workflow = Workflow.model_validate(workflow)

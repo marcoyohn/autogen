@@ -32,6 +32,7 @@ from ..version import VERSION
 
 from ..utils.auth_middleware import *
 from ..utils.uc import *
+from ..utils.user_message import *
 from starlette.authentication import requires
 from starlette.requests import Request
 
@@ -62,7 +63,7 @@ def message_handler():
                 logger.info(
                     f"Sending message to connection_id: {message['connection_id']}. Connection ID: {socket_client_id}"
                 )
-                # TODO 是否需要转换image_url的oss格式为url格式
+                # TODO 是否需要转换image_url的oss格式为url格式? 还是调用方自行转换
                 asyncio.run(websocket_manager.send_message(message, connection))
             else:
                 logger.info(
@@ -359,8 +360,9 @@ async def run_workflow(message: Message, workflow_id: int, request: Request=None
         raise RuntimeError("message with session id, will be call /sessions/{session_id}/workflow/{workflow_id}/run")
     if request:
         message.user_id = request.user.identity
-    # TODO 转换oss格式为url
-    return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=None, workflow_id=workflow_id)
+    # add by ymc : add context
+    context: Dict[str, Any] = {"user_id": request.user.identity}
+    return await asyncio.to_thread(block_run_session_workflow, context=context, message=message, session_id=None, workflow_id=workflow_id)
 
 @api.post("/workflows/{workflow_id}/run/sse")
 async def run_workflow_sse(message: Message, workflow_id: int, request: Request=None):
@@ -369,7 +371,9 @@ async def run_workflow_sse(message: Message, workflow_id: int, request: Request=
     if request:
         message.user_id = request.user.identity
     sse_queue = queue.Queue()
-    thread_pool.submit(block_run_session_workflow, message=message, session_id=None, workflow_id=workflow_id, notify_message_queue=sse_queue, need_notify_job_done=True)
+    # add by ymc : add context
+    context: Dict[str, Any] = {"user_id": request.user.identity}
+    thread_pool.submit(block_run_session_workflow, context=context, message=message, session_id=None, workflow_id=workflow_id, notify_message_queue=sse_queue, need_notify_job_done=True)
 
     return StreamingResponse(
         adapter_queue(sse_queue),
@@ -465,8 +469,9 @@ async def run_session_workflow(message: Message, session_id: int, workflow_id: i
     if request:
         message.user_id = request.user.identity
     message.session_id = session_id
-    # TODO 转换oss格式为url
-    return await asyncio.to_thread(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id)
+    # add by ymc : add context
+    context: Dict[str, Any] = {"user_id": request.user.identity}
+    return await asyncio.to_thread(block_run_session_workflow, context=context, message=message, session_id=session_id, workflow_id=workflow_id)
 
 @api.post("/sessions/{session_id}/workflow/{workflow_id}/run/sse")
 async def run_session_workflow_sse(message: Message, session_id: int, workflow_id: int, request: Request=None):
@@ -475,7 +480,9 @@ async def run_session_workflow_sse(message: Message, session_id: int, workflow_i
     message.session_id = session_id
 
     sse_queue = queue.Queue()
-    thread_pool.submit(block_run_session_workflow, message=message, session_id=session_id, workflow_id=workflow_id, notify_message_queue=sse_queue, need_notify_job_done=True)
+    # add by ymc : add context
+    context: Dict[str, Any] = {"user_id": request.user.identity}
+    thread_pool.submit(block_run_session_workflow, context=context, message=message, session_id=session_id, workflow_id=workflow_id, notify_message_queue=sse_queue, need_notify_job_done=True)
 
     return StreamingResponse(
         adapter_queue(sse_queue),
@@ -489,22 +496,25 @@ def adapter_queue(queue: queue.Queue):
         next_item = queue.get(block=True)  # blocks until an input is available
         if next_item is job_done:
             break
-        # TODO 是否需要转换image_url的oss格式为url格式
+        # TODO 是否需要转换image_url的oss格式为url格式? 还是调用方自行转换
         yield f"data: {serialize_to_str(next_item)}\n\n"
 
-def block_run_session_workflow(message: Message, session_id: int, workflow_id: int, notify_message_queue: Optional[queue.Queue]=None, need_notify_job_done: bool = False):
+def block_run_session_workflow(context: Dict[str, Any], message: Message, session_id: int, workflow_id: int, notify_message_queue: Optional[queue.Queue]=None, need_notify_job_done: bool = False):
     """Runs a workflow on provided message"""
     # add by ymc: send message to queue
     def send_message(message: str) -> None:    
         if notify_message_queue: 
-            notify_message_queue.put(message, block=True)            
-
-    # add by ymc: 没有则生成connection_id，便于关联请求和响应
-    if message.connection_id is None:
-        message.connection_id = str(uuid.uuid4())
-
-    message_dict = message.model_dump()
+            notify_message_queue.put(message, block=True)  
     try:
+        # add by ymc : 转换url为oss格式
+        ensure_user_image_oss(message.content, context)
+
+        # add by ymc: 没有则生成connection_id，便于关联请求和响应
+        if message.connection_id is None:
+            message.connection_id = str(uuid.uuid4())
+
+        message_dict = message.model_dump()
+
         user_message_history = (
             dbmanager.get(
                 Message,
@@ -543,6 +553,7 @@ def block_run_session_workflow(message: Message, session_id: int, workflow_id: i
             workflow=workflow,
             connection_id=message.connection_id,
             send_message_function=send_message, # add by ymc
+            context=context,
         )
 
         response: Response = dbmanager.upsert(agent_response)
@@ -595,8 +606,10 @@ async def process_socket_message(data: dict, websocket: WebSocket, client_id: st
         user_message.user_id = user_id
         session_id = data["data"].get("session_id", None)
         workflow_id = data["data"].get("workflow_id", None)    
+        # add by ymc : add context
+        context: Dict[str, Any] = {"user_id": user_id}
         # modify by ymc: 修改为调用内部方法 
-        await asyncio.to_thread(block_run_session_workflow, message=user_message, session_id=session_id, workflow_id=workflow_id, notify_message_queue=message_queue)        
+        await asyncio.to_thread(block_run_session_workflow, context=context, message=user_message, session_id=session_id, workflow_id=workflow_id, notify_message_queue=message_queue)        
 
 
 @api.websocket("/ws/{client_id}")
@@ -631,8 +644,8 @@ async def request_oss_upload_url(request: Request, file_name: str):
     
     oss = Osss.default().defaultOss()
     policy = await oss.async_get_upload_policy()
-    file_key=f"{oss.key_prefix()}{str(uuid.uuid4())}/{quote(file_name)}"
-    ret: Dict[str, Any] = {"upload_url": policy.upload_url, "method": policy.method, "oss_key": f"{file_key}@{oss.app_id()}"}
+    file_key=f"{oss.key_prefix}{str(uuid.uuid4())}/{quote(file_name)}"
+    ret: Dict[str, Any] = {"upload_url": policy.upload_url, "method": policy.method, "oss_key": f"{file_key}@{oss.app_id}"}
     ret["form_fields"] = {**policy.form_fields, "key": file_key}
     ret["header_fields"] = {**policy.header_fields}
 
