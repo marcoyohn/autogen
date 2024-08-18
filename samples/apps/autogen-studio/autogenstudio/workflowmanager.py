@@ -125,6 +125,9 @@ class WorkflowManager:
             silent: determining verbosity.
             sender_type: The type of the sender of the message.
         """
+        # add by ymc: silent不输出，不记录历史
+        if silent:
+            return
 
         message = message if isinstance(message, dict) else {"content": message, "role": "user"}
         message_payload = {
