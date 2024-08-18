@@ -712,8 +712,12 @@ class ConversableAgent(LLMAgent):
     def _print_received_message(self, message: Union[Dict, str], sender: Agent):
         iostream = IOStream.get_default()
         # print the message received
-        iostream.print(colored(sender.name, "yellow"), "(to", f"{self.name}):\n", flush=True)
         message = self._message_to_dict(message)
+        # modif by ymc
+        if message.get("busi_type"):
+            iostream.print(colored(sender.name, "yellow"), "(to", f"{self.name})", "(role is", f"{message.get('role')})", "(busi_type is", f"{message.get('busi_type')}):\n", flush=True)
+        else:
+            iostream.print(colored(sender.name, "yellow"), "(to", f"{self.name})", "(role is", f"{message.get('role')}):\n", flush=True)
 
         if message.get("tool_responses"):  # Handle tool multi-call responses
             for tool_response in message["tool_responses"]:
