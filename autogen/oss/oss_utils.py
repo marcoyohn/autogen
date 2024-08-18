@@ -54,7 +54,7 @@ def upload_image_data(image_data: Union[str,bytes], cacheable: Optional[bool] = 
 def download_oss_file(oss_key: str) -> bytes:
     file_key, app_id = oss_key.split("@")
     url = Osss.default().getOss(app_id).get_inner_download_url(file_key, 3600)
-    response = httpx.get(url)
+    response = httpx.get(url, timeout=60.0)
     response.raise_for_status() 
     return response.content
 
