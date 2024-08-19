@@ -72,9 +72,10 @@ def updateComponent(
     return "mock:id"
 
 class SheEditorAgent(autogen.ConversableAgent):
-    def __init__(self, message_processor=None, *args, **kwargs):
+    def __init__(self, message_processor=None, context=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.message_processor = message_processor
+        self.context = context
         self.register_reply(autogen.Agent, function_call_direct_reply)
         if self.llm_config:
             self.register_for_llm(name="createObject", description="创建3d几何体")(createObject)
@@ -88,6 +89,6 @@ class SheEditorAgent(autogen.ConversableAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)
 

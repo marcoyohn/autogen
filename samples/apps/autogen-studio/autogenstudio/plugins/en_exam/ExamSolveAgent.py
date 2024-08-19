@@ -98,5 +98,5 @@ class ExamSolveAgent(autogen.AssistantAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)

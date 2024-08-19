@@ -24,9 +24,10 @@ import util.prompt
 class ExamPreTreatAgent(autogen.ConversableAgent):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix="ThreadPoolExecutor_ExamPreTreat")
     
-    def __init__(self, message_processor=None, llm_config=None, *args, **kwargs):
+    def __init__(self, message_processor=None, context=None, llm_config=None, *args, **kwargs):
         super().__init__(llm_config=llm_config, *args, **kwargs)
-        self.message_processor = message_processor    
+        self.message_processor = message_processor   
+        self.context = context 
         self.register_reply(Agent, ExamPreTreatAgent._generate_exam_pre_treat_reply, position=2)
         # init nested agent    
         self.context = {}
@@ -132,5 +133,5 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)

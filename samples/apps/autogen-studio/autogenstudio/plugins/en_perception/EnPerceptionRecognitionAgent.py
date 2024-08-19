@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from autogen.agentchat.agent import Agent
 import autogen
 from autogen.agentchat.conversable_agent import ConversableAgent
+from autogenstudio.utils.user_message import *
 
 # 把当前路径添加到pythonpath中
 sys.path.append(path.dirname(path.abspath(__file__)))
@@ -16,7 +17,6 @@ from EnPerceptionTalAutomaticBoxAgent import EnPerceptionTalAutomaticBoxAgent
 from EnPerceptionCvteAutomaticBoxAgent import EnPerceptionCvteAutomaticBoxAgent
 from EnPerceptionLlmToolsSolveAgent import EnPerceptionLlmToolsSolveAgent
 from utils.function_call import *
-from utils.user_message import resolve_user_image, resolve_user_image_date_uri
 
 
 class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
@@ -42,33 +42,22 @@ class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
         sender: Optional[Agent] = None,
         config: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:     
-        message = messages[-1]            
-        image = resolve_user_image(message, self.context)
-
-        images: List[Dict] = [item for item in message["content"] if item["type"] == "image_url"]
-        image_url_dict = images[0]["image_url"]
-        image_url = image_url_dict["url"]
-        image_context_key = image_url_dict.get("context_key", None)
-        filekey = image_url_dict.get("filekey", None) or image_url
-        if image_context_key is None:
-            image_context_key = "input_img"
-            self.context[image_context_key] = image
-
-        box_result = self.initiate_chat(self.box_agent, message={"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_url, "filekey": filekey, "context_key": image_context_key}}]}, max_turns=1, silent=False)
+        message = messages[-1]   
+        oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
+        image_url = {"url": f"oss:{oss_key}"}
+        if crop is not None:
+            image_url["crop"] = crop
+        box_result = self.initiate_chat(self.box_agent, message={"role": "user", "content": [{"type": "image_url", "image_url": image_url}]}, max_turns=1, silent=False)
         box = json.loads(box_result.summary)     
         futures = []   
         for box_item in box["automatic_box_items"]:
             positions = box_item["item_position_show"]
-            # 根据给定的坐标裁剪图片
-            cropped_image = image.crop((positions[0][0], positions[0][1], positions[2][0], positions[2][1]))    
-            cropped_image_context_key = f"input_img_{positions[0][0]}_{positions[0][1]}_{positions[2][0]}_{positions[2][1]}"
-            self.context[cropped_image_context_key] = cropped_image 
             # image mssage
             message = {
                         "role": "user",
                         "content": [
                             {
-                                "type": "image_url", "image_url": {"sprite": [positions[0][0], positions[0][1], positions[2][0], positions[2][1]],"filekey": filekey, "url": image_url, "context_key": cropped_image_context_key}
+                                "type": "image_url", "image_url": {"crop": [positions[0][0], positions[0][1], positions[2][0], positions[2][1]], "url": f"oss:{oss_key}"}
                             }
                         ]
                     }
@@ -96,5 +85,5 @@ class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)

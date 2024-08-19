@@ -1,11 +1,12 @@
 import base64
+import hashlib
 from io import BytesIO
 import json
 import logging
 import os
 import sys
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 import autogen
@@ -13,9 +14,9 @@ from autogen.agentchat.agent import Agent
 from autogen.agentchat.contrib.img_utils import convert_base64_to_data_uri, get_image_data
 from autogen.cache.cache import Cache
 from autogen.oai.openai_utils import get_key
+from autogen.oss.oss_utils import upload_image_data
+from autogenstudio.utils.user_message import *
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from utils.user_message import resolve_user_image
 
 
 class EnPerceptionHandWrittenEraseAgent(autogen.AssistantAgent):
@@ -36,18 +37,17 @@ class EnPerceptionHandWrittenEraseAgent(autogen.AssistantAgent):
         config: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
         message = messages[-1]
-        image = resolve_user_image(message, self.context)     
-        buffered = BytesIO()
-        image.save(buffered, format="PNG")
-        image_bytes = buffered.getvalue()
-        image_base64 = base64.b64encode(image_bytes).decode("utf-8")   
+        oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
+        image_bytes = resolve_user_image_bytes(oss_key, self.context, crop=crop)             
 
-        with Cache.disk("tal_automatic_box", ".cache") as cache_client:
+        with Cache.disk("ti_hand_written_erase", ".cache") as cache_client:
             url_query = "dewarp=0&binarization=1"
-            key = get_key({"url_query": url_query, "image_base64": image_base64})
-            image_data: str = cache_client.get(key, None)
-            if image_data:
-                return True, {"role": "assistant","content": json.dumps({"msg_type": "agent_message_hand_written_erase", "image_url": { "url": convert_base64_to_data_uri(image_data)}})}
+            key = hashlib.md5(image_bytes).hexdigest() + str(len(image_bytes)) + str(image_bytes[-10:])
+            oss_key_file: str = cache_client.get(key, None)
+            if oss_key_file:
+                file_key, app_id = oss_key_file.split("@")
+                return True, {"busi_type": "agent_message_hand_written_erase", "role": "assistant","content": [{"type": "image_url", "image_url": { "url": f"oss:{oss_key_file}"}}]}
+
             head = {}
             head['x-ti-app-id'] = self.app_id
             head['x-ti-secret-code'] = self.secret_code
@@ -67,8 +67,11 @@ class EnPerceptionHandWrittenEraseAgent(autogen.AssistantAgent):
             if result["code"] != 200:
                 raise RuntimeError('擦除手写痕迹失败')
             image_data = result["result"]["image"]
-            cache_client.set(key, image_data)
-            return True, {"role": "assistant","content": json.dumps({"msg_type": "agent_message_hand_written_erase", "image_url": { "url": convert_base64_to_data_uri(image_data)}})}
+            file_key, app_id = upload_image_data(image_data, cacheable=True, file_key_only=True)                     
+            oss_key_file = f"{file_key}@{app_id}"
+            cache_client.set(key, oss_key_file)
+            
+            return True, {"busi_type": "agent_message_hand_written_erase", "role": "assistant","content": [{"type": "image_url", "image_url": { "url": f"oss:{oss_key_file}"}}]}
 
     
     def receive(
@@ -79,5 +82,5 @@ class EnPerceptionHandWrittenEraseAgent(autogen.AssistantAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)

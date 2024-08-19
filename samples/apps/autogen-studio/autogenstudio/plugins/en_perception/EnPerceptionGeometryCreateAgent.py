@@ -8,10 +8,11 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from typing_extensions import Annotated
 from autogen.agentchat.agent import Agent
 import autogen
+from autogenstudio.utils.user_message import *
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from utils.function_call import *
-from utils.user_message import resolve_user_image_date_uri
+
 
 
 # 把当前路径添加到pythonpath中
@@ -139,8 +140,9 @@ class EnPerceptionGeometryCreateAgent(autogen.ConversableAgent):
         # {
 		# 	"type": "image_url", "image_url": {"url": "https://xxx", "filekey": "xxx", "sprite": [xx,xx,xx,xx], "context_key": ""}
 		# } 
-        message = messages[-1]            
-        image_data_uri = resolve_user_image_date_uri(message, self.context)
+        message = messages[-1]          
+        oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
+        image_data_uri = resolve_user_image_date_uri(oss_key, self.context, crop=crop)
         
         if self.contains_multi_model:
             multi_model_agent_result = self.initiate_chat(self.multi_model_agent, message={"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_data_uri}}]}, max_turns=1, silent=True)
@@ -160,5 +162,5 @@ class EnPerceptionGeometryCreateAgent(autogen.ConversableAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor and not silent:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)

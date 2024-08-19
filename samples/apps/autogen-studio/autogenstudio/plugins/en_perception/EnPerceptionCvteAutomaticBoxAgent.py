@@ -12,10 +12,10 @@ import autogen
 from autogen.agentchat.agent import Agent
 from autogen.cache.cache import Cache
 from autogen.oai.openai_utils import get_key
+from autogenstudio.utils.user_message import *
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from utils.tal.send_sign_http import send_request
-from utils.user_message import resolve_user_image_date
 
 class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
     def __init__(self, message_processor=None, context=None, *args, **kwargs):
@@ -36,7 +36,8 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
         config: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
         message = messages[-1]
-        img_base64 = resolve_user_image_date(message, self.context)        
+        oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
+        img_base64 = resolve_user_image_base64(oss_key, self.context, crop=crop)        
                 
         task_id = str(uuid.uuid4())
         body_params = {
@@ -48,7 +49,7 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
 
             response: str = cache_client.get(key, None)
             if response:
-                return True, {"role": "assistant","content": response}
+                return True, {"busi_type": "agent_message_automatic_box", "role": "assistant","content": response}
             t = int(time.time())
             need_sign_str = "t={0}&aid={1}&akey={2}&skey={3}".format(t, self.app_id, self.api_key, self.secret_key)
             sign = sha1(need_sign_str.encode("utf8")).hexdigest()
@@ -106,7 +107,7 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
                 "automatic_box_items": automatic_box_items
             })
             cache_client.set(key, response)
-            return True, {"role": "assistant","content": response}
+            return True, {"busi_type": "agent_message_automatic_box", "role": "assistant","content": response}
 
     
     def receive(
@@ -117,5 +118,5 @@ class EnPerceptionCvteAutomaticBoxAgent(autogen.AssistantAgent):
         silent: Optional[bool] = False,
     ):
         if self.message_processor:
-            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent")
+            self.message_processor(sender, self, message, request_reply, silent, sender_type="agent", context=self.context)
         super().receive(message, sender, request_reply, silent)
