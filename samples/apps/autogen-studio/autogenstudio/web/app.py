@@ -7,14 +7,14 @@ import threading
 import time
 import traceback
 from contextlib import asynccontextmanager
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 from urllib.parse import quote
 import uuid
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import HTTPConnection
-from fastapi.responses import PlainTextResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, StreamingResponse, Response as OkResponse
 from fastapi.staticfiles import StaticFiles
 import jwt
 from loguru import logger
@@ -26,13 +26,14 @@ from autogen.oss.Osss import OssConfig, Osss, OsssConfig
 from ..chatmanager import AutoGenChatManager, WebSocketConnectionManager
 from ..database import workflow_from_id
 from ..database.dbmanager import DBManager
-from ..datamodel import Agent, Message, Model, Response, Session, Skill, Workflow
+from ..datamodel import Agent, Message, Model, OssFile, Response, Session, Skill, Workflow
 from ..utils import check_and_cast_datetime_fields, init_app_folders, md5_hash, test_model
 from ..version import VERSION
 
 from ..utils.auth_middleware import *
 from ..utils.uc import *
 from ..utils.user_message import *
+from ..oss.db_oss_config import *
 from starlette.authentication import requires
 from starlette.requests import Request
 
@@ -97,7 +98,10 @@ async def lifespan(app: FastAPI):
         oss_list_config = json.loads(oss_list_config)
         oss_list = []
         for oss_config in oss_list_config:
-            oss_list.append(OssConfig(**oss_config))        
+            if oss_config["oss_type"] == "db_oss":
+                oss_list.append(DbOssConfig(**oss_config)) 
+            else:
+                oss_list.append(OssConfig(**oss_config))        
         osss_config = OsssConfig(oss_list=oss_list)
         Osss.buildDefault(osss_config)
     else:
@@ -130,7 +134,7 @@ api = FastAPI(root_path="/api")
 def auth_error_handler(conn: HTTPConnection, exc: Exception) -> Response:
     return PlainTextResponse(str(exc), status_code=401)
 
-api.add_middleware(AuthMiddleware, verify_func=verify_authorization, auth_error_handler=auth_error_handler, excluded_urls=["/api/version", "/api/docs", "/api/openapi.json"])
+api.add_middleware(AuthMiddleware, verify_func=verify_authorization, auth_error_handler=auth_error_handler, excluded_urls=["/api/version", "/api/docs", "/api/openapi.json", "/api/db-oss/upload", "/api/db-oss/download", "/api/db-oss/internal-upload", "/api/db-oss/internal-download"])
 # mount an api route such that the main route serves the ui and the /api
 app.mount("/api", api)
 
@@ -679,3 +683,68 @@ async def redirect_download_oss_file(request: Request, oss_key: str, expire_seco
     download_url = await oss.async_get_download_url(file_key, expire_seconds or 3600)
     return RedirectResponse(download_url)
     
+
+@api.post("/db-oss/upload")
+async def db_oss_upload(file: Annotated[bytes, File()],
+                        key: Annotated[str, Form()], 
+                        app_id: Annotated[str, Form()], 
+                        sign: Annotated[str, Form()]):
+    payload = jwt.decode(sign, os.environ["WS_TOKEN_JWT_SECRET"], algorithms=[os.environ["WS_TOKEN_JWT_ALGORITHM"]])
+    exp = int(payload["exp"])
+    if time.time() > exp:
+        raise RuntimeError("token效验异常！")
+    if not (payload["op"] == "upload" and payload["app_id"] == app_id):
+        raise RuntimeError(f"效验不通过！")
+    await do_db_oss_upload(key, app_id, file)
+    return OkResponse()
+    
+
+@api.post("/db-oss/internal-upload")
+async def db_oss_internal_upload(file: Annotated[bytes, File()],                                 
+                                 key: Annotated[str, Form()], 
+                                 app_id: Annotated[str, Form()], 
+                                 sign: Annotated[str, Form()]):
+    payload = jwt.decode(sign, os.environ["WS_TOKEN_JWT_SECRET"], algorithms=[os.environ["WS_TOKEN_JWT_ALGORITHM"]])
+    exp = int(payload["exp"])
+    if time.time() > exp:
+        raise RuntimeError("token效验异常！")
+    if not (payload["op"] == "internal_upload" and payload["app_id"] == app_id):
+        raise RuntimeError(f"效验不通过！")
+    # file_bytes = await fileb.read()
+    await do_db_oss_upload(key, app_id, file)
+    return OkResponse()
+    
+
+@api.get("/db-oss/download")
+async def db_oss_download(request: Request, key: str, app_id: str, sign: str):
+    payload = jwt.decode(sign, os.environ["WS_TOKEN_JWT_SECRET"], algorithms=[os.environ["WS_TOKEN_JWT_ALGORITHM"]])
+    exp = int(payload["exp"])
+    if time.time() > exp:
+        raise RuntimeError("token效验异常！")
+    if not (payload["op"] == "download" and payload["key"] == key and payload["app_id"] == app_id):
+        raise RuntimeError(f"效验不通过！")
+    return await do_db_oss_download(key, app_id)
+
+@api.get("/db-oss/internal-download")
+async def db_oss_internal_download(request: Request, key: str, app_id: str, sign: str):
+    payload = jwt.decode(sign, os.environ["WS_TOKEN_JWT_SECRET"], algorithms=[os.environ["WS_TOKEN_JWT_ALGORITHM"]])
+    exp = int(payload["exp"])
+    if time.time() > exp:
+        raise RuntimeError("token效验异常！")
+    if not (payload["op"] == "internal_download" and payload["key"] == key and payload["app_id"] == app_id):
+        raise RuntimeError(f"效验不通过！")
+    return await do_db_oss_download(key, app_id)
+
+async def do_db_oss_upload(key: str, app_id: str, file: bytes):
+    return await asyncio.to_thread(lambda key, app_id, file: dbmanager.upsert(OssFile(key=key, app_id=app_id, content=file)), key, app_id, file)
+
+async def do_db_oss_download(key: str, app_id: str):
+    filters = {"key": key, "app_id": app_id}    
+    oss_files: Response[List[OssFile]] = await asyncio.to_thread(lambda filters: list_entity(OssFile, filters=filters), filters)
+    if not oss_files.status:
+        raise RuntimeError("系统异常")
+    oss_files = oss_files.data
+    if oss_files is None or len(oss_files) == 0:
+        raise RuntimeError("文件不存在")
+    oss_file = oss_files[0]
+    return OkResponse(content=oss_file["content"], media_type=oss_file.get("content_type", None) or "application/octet-stream")

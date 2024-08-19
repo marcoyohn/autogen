@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
-from sqlalchemy import ForeignKey, Integer, orm
+from sqlalchemy import ForeignKey, Integer, LargeBinary, orm
 from sqlmodel import (
     JSON,
     Column,
@@ -266,3 +266,21 @@ class SocketMessage(SQLModel, table=False):
     connection_id: str
     data: Dict[str, Any]
     type: str
+
+
+class OssFile(SQLModel, table=True):
+    __table_args__ = {"sqlite_autoincrement": True}
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
+    )  # pylint: disable=not-callable
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    )  # pylint: disable=not-callable
+    key: str
+    app_id: str
+    content: bytes = Field(default=None, sa_column=Column(LargeBinary))
+    content_type: Optional[str] = None
+    
