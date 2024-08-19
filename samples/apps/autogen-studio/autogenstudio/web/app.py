@@ -649,7 +649,11 @@ async def request_oss_upload_url(request: Request, file_name: str):
     ret["form_fields"] = {**policy.form_fields, "key": file_key}
     ret["header_fields"] = {**policy.header_fields}
 
-    return ret
+    return {
+        "status": True,
+        "message": "successfully",
+        "data": ret,
+    }
 
 # add by ymc
 @api.get("/osss/request-download-url")
@@ -658,7 +662,12 @@ async def request_oss_download_url(request: Request, oss_key: str, expire_second
     oss = Osss.default().getOss(app_id)
     if oss is None:
         raise RuntimeError("不支持的oss_key")
-    return await oss.async_get_download_url(file_key, expire_seconds or 3600)
+    
+    return {
+        "status": True,
+        "message": "successfully",
+        "data": await oss.async_get_download_url(file_key, expire_seconds or 3600),
+    }
 
 # add by ymc
 @api.get("/osss/redirect-download")
