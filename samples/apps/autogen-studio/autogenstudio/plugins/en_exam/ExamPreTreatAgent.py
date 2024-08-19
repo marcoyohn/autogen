@@ -14,6 +14,7 @@ from os import path
 
 from autogen.agentchat.contrib.img_utils import get_pil_image, pil_to_data_uri
 from autogen.cache.cache import Cache
+from autogenstudio.utils.user_message import *
 # 把当前路径添加到pythonpath中
 sys.path.append(path.dirname(path.abspath(__file__)))
 from ExamAutomaticBoxAgent import ExamAutomaticBoxAgent
@@ -54,57 +55,29 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
 
         # call automatic box agent
         message = messages[-1]    
-        if "mock_enabled" in os.environ and os.environ["mock_enabled"] == "1" and (isinstance(message["content"], str) or len([item for item in message["content"] if item["type"] == "image_url"]) == 0):
-            # TODO 去掉这逻辑 测试写死message 消息 https://cos-public.seewo.com/public_appId-dev/ymc_jiheti_1.png
-            message = {
-                            "role": "user",
-                            "content": [                            
-                                {
-                                    "type": "image_url", "image_url": {"url": "https://cos-public.seewo.com/public_appId-dev/ymc_jiheti_1.png"}
-                                }
-                            ]
-                        }
-        images: List[Dict] = [item for item in message["content"] if item["type"] == "image_url"]
-        images_len = len(images)
-        if images_len == 0:
-            raise RuntimeError('请输入一张图片')
-        if images_len > 1:
-            raise RuntimeError('输入只支持一张图片')
-        image_url_dict = images[0]["image_url"]
-        image_url = image_url_dict["url"]
-        filekey = image_url_dict.get("filekey", None) or image_url
-        image = None
-        with Cache.disk("automatic_box", ".cache") as cache_client:
-            image_cache: str = cache_client.get(filekey, None)
-            if image_cache:
-                image = get_pil_image(image_cache)
-            else:
-                image = get_pil_image(image_url)
-                cache_client.set(filekey, pil_to_data_uri(image))
-        self.context[f"image:{filekey}"] = image
-        automatic_box_agent_result = self.initiate_chat(self.automatic_box_agent, message={"role": "user", "content": [images[0]]}, max_turns=1)
+        oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
+        image_url = {"url": f"oss:{oss_key}"}
+        if crop is not None:
+            image_url["crop"] = crop
+        automatic_box_agent_result = self.initiate_chat(self.automatic_box_agent, message={"role": "user", "content": [{"type": "image_url", "image_url": image_url}]}, max_turns=1, silent=False)
         # parse automatic box to image        
         automatic_box_result = json.loads(automatic_box_agent_result.summary)
         automatic_box_result["msg_type"] = "agent_response"
         self.context["result"] = automatic_box_result
         futures = []
         for box_item in automatic_box_result["automatic_box_items"]:
-            positions = box_item["item_position_show"]
-            # 根据给定的坐标裁剪图片
-            cropped_image = image.crop((positions[0][0], positions[0][1], positions[2][0], positions[2][1]))        
-            self.context[f"image:{filekey}:{positions[0][0]}-{positions[0][1]}-{positions[2][0]}-{positions[2][1]}"] = cropped_image 
+            positions = box_item["item_position_show"]            
             # image mssage
             message = {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "这是几何题图片："},
                             {
-                                "type": "image_url", "image_url": {"sprite": [positions[0][0], positions[0][1], positions[2][0], positions[2][1]],"filekey": filekey, "url": image_url}
+                                "type": "image_url", "image_url": {"crop": [positions[0][0], positions[0][1], positions[2][0], positions[2][1]], "url": f"oss:{oss_key}"}
                             }
                         ]
-                    }
+                    }            
             # call exam solve agent     
-            solve_agent = ExamSolveAgent(name="en_exam_solve_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="solve", llm_config=self.exam_solve_llm_config)
+            solve_agent = ExamSolveAgent(name="en_exam_solve_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="solve", llm_config=self.exam_solve_llm_config, item_index=box_item["item_index"])
             solve_agent.update_system_message(util.prompt.exam_solve_prompt)
             futures.append(ExamPreTreatAgent.executor.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), solve_agent, message))       
             # self.initiate_chat(self.solve_agent, message=message, max_turns=1)

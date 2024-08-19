@@ -9,6 +9,7 @@ from autogen.agentchat.contrib.img_utils import get_image_data
 from autogen.cache.cache import Cache
 from autogen.oai.openai_utils import get_key
 from util.send_sign_http import send_request
+from autogenstudio.utils.user_message import *
 
 
 class ExamAutomaticBoxAgent(autogen.AssistantAgent):
@@ -25,10 +26,8 @@ class ExamAutomaticBoxAgent(autogen.AssistantAgent):
         config: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
         message = messages[-1]
-        image_url_dict = message["content"][0]["image_url"]
-        filekey = image_url_dict.get("filekey", None) or image_url_dict["url"]
-        image = self.context[f"image:{filekey}"]
-        img_base64 = get_image_data(image, use_b64=True)
+        oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
+        img_base64 = resolve_user_image_base64(oss_key, self.context, crop=crop) 
         
         # 获取当前时间（东8区）
         timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())

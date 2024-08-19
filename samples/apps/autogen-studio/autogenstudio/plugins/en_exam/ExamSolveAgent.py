@@ -8,15 +8,17 @@ from autogen.agentchat.agent import Agent
 from autogen.agentchat.contrib.img_utils import get_image_data, pil_to_data_uri
 from autogen.agentchat.conversable_agent import ConversableAgent
 from autogen._pydantic import model_dump
+from autogenstudio.utils.user_message import *
 
 ExamSolveTypeSymbol = Literal["solve", "math_expr"]
 
 class ExamSolveAgent(autogen.AssistantAgent):
-    def __init__(self, message_processor=None, context=None, exam_solve_type: ExamSolveTypeSymbol=None, *args, **kwargs):
+    def __init__(self, message_processor=None, context=None, exam_solve_type: ExamSolveTypeSymbol=None, item_index: int = None,  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.message_processor = message_processor     
         self.context = context   
         self.exam_solve_type = exam_solve_type
+        self.item_index = item_index
         # Override the `generate_oai_reply`
         self.replace_reply_func(ConversableAgent.generate_oai_reply, ExamSolveAgent.generate_oai_reply)
         self.replace_reply_func(
@@ -38,8 +40,7 @@ class ExamSolveAgent(autogen.AssistantAgent):
         if messages is None:
             messages = self._oai_messages[sender]
         
-        automatic_box_item_sprite = None
-        automatic_box_item = {}
+        automatic_box_item = {"item_index": self.item_index}
         result = {"msg_type": f"agent_message_{self.exam_solve_type}_patch", "automatic_box_items":[automatic_box_item]}
         new_messages = []
         for message in messages:
@@ -47,12 +48,9 @@ class ExamSolveAgent(autogen.AssistantAgent):
                 message = copy.deepcopy(message)
                 for item in message["content"]:
                     if isinstance(item, dict) and "image_url" in item:
-                        image_url_dict = item["image_url"]
-                        filekey = image_url_dict.get("filekey", None) or image_url_dict["url"]
-                        sprite = image_url_dict["sprite"]
-                        automatic_box_item_sprite = sprite
-                        cropped_image = self.context[f"image:{filekey}:{sprite[0]}-{sprite[1]}-{sprite[2]}-{sprite[3]}"]
-                        image_url_dict["url"] = pil_to_data_uri(cropped_image)
+                        oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
+                        image_btyes = resolve_user_image_bytes(oss_key, self.context)                        
+                        item["image_url"]["url"] = pil_to_data_uri(Image.open(BytesIO(image_btyes)).crop(tuple(crop)))                           
 
             new_messages.append(message)
         
@@ -79,9 +77,7 @@ class ExamSolveAgent(autogen.AssistantAgent):
 
         context_result = self.context["result"]
         for box_item in context_result["automatic_box_items"]:
-            positions = box_item["item_position_show"]
-            if automatic_box_item_sprite[0] == positions[0][0] and automatic_box_item_sprite[1] == positions[0][1] and automatic_box_item_sprite[2] == positions[2][0] and automatic_box_item_sprite[3] == positions[2][1]:
-                automatic_box_item["item_index"] = box_item["item_index"]
+            if box_item["item_index"] == self.item_index:
                 box_item[self.exam_solve_type] = extracted_response
                 break
 
