@@ -82,7 +82,7 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
             futures.append(ExamPreTreatAgent.executor.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), solve_agent, message))       
             # self.initiate_chat(self.solve_agent, message=message, max_turns=1)
             # call exam math expr agent
-            math_expr_agent = ExamSolveAgent(name="en_exam_math_expr_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="math_expr", llm_config=self.exam_solve_llm_config)
+            math_expr_agent = ExamSolveAgent(name="en_exam_math_expr_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="math_expr", llm_config=self.exam_solve_llm_config, item_index=box_item["item_index"])
             math_expr_agent.update_system_message(util.prompt.exam_math_prompt)
             futures.append(ExamPreTreatAgent.executor.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), math_expr_agent, message))
             # self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)
