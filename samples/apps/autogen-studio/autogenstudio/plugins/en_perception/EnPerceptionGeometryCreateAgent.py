@@ -146,8 +146,7 @@ class EnPerceptionGeometryCreateAgent(autogen.ConversableAgent):
         
         if self.contains_multi_model:
             multi_model_agent_result = self.initiate_chat(self.multi_model_agent, message={"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_data_uri}}]}, max_turns=1, silent=True)
-            result = json.loads(multi_model_agent_result.summary)
-            return True, result
+            return True, multi_model_agent_result.chat_history[-1]
         else:
             image_agent_result = self.initiate_chat(self.image_agent, message={"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_data_uri}}]}, max_turns=1, silent=True)
             geometry_agent_result = self.initiate_chat(self.geometry_agent, message={"role": "user", "content": image_agent_result.summary}, max_turns=1, silent=True)
