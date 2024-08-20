@@ -25,7 +25,7 @@ class DBManager:
     """A class to manage database operations"""
 
     def __init__(self, engine_uri: str):
-        connection_args = {"check_same_thread": True} if "sqlite" in engine_uri else {}
+        connection_args = {"check_same_thread": False} if "sqlite" in engine_uri else {}
         self.engine = create_engine(engine_uri, 
                                     connect_args=connection_args,
                                     pool_size=5,
