@@ -72,7 +72,10 @@ def resolve_user_image_bytes(oss_key: str, context: Dict[str, Any], crop: List[i
         image_bytes = download_oss_file(oss_key)
         context[f"image_bytes_{oss_key}"] = image_bytes
     if crop and len(crop) > 0:
-        image = Image.open(BytesIO(image_bytes)).crop(tuple(crop))
+        if len(crop) == 8:
+            image = Image.open(BytesIO(image_bytes)).crop((crop[0],crop[1],crop[4],crop[5]))
+        else:
+            image = Image.open(BytesIO(image_bytes)).crop(tuple(crop))
         buffered = BytesIO()
         image.save(buffered, format="PNG")
         image_bytes = buffered.getvalue()
