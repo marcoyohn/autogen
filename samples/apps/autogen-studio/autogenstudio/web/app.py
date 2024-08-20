@@ -1,6 +1,7 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import json
+from mimetypes import guess_type
 import os
 import queue
 import threading
@@ -738,7 +739,9 @@ async def db_oss_internal_download(request: Request, key: str, app_id: str, sign
     return await do_db_oss_download(key, app_id)
 
 async def do_db_oss_upload(key: str, app_id: str, file: bytes):
-    return await asyncio.to_thread(lambda key, app_id, file: dbmanager.upsert(OssFile(key=key, app_id=app_id, content=file)), key, app_id, file)
+    # 根据key后缀名，匹配文件媒体类型
+    media_type = guess_type(key)[0] or "text/plain"
+    return await asyncio.to_thread(lambda key, app_id, file: dbmanager.upsert(OssFile(key=key, app_id=app_id, content=file, content_type=media_type)), key, app_id, file)
 
 async def do_db_oss_download(key: str, app_id: str):
     filters = {"key": key, "app_id": app_id}    
@@ -749,4 +752,15 @@ async def do_db_oss_download(key: str, app_id: str):
     if oss_files is None or len(oss_files) == 0:
         raise RuntimeError("文件不存在")
     oss_file = oss_files[0]
-    return OkResponse(content=oss_file["content"], media_type=oss_file.get("content_type", None) or "application/octet-stream")
+    # 根据媒体类型，设置不同的content-type，
+    filename = key.split("/")[-1]
+    content_disposition_filename = quote(filename)
+    if content_disposition_filename != filename:
+        content_disposition = "attachment; filename*=utf-8''{}".format(
+            content_disposition_filename
+        )
+    else:
+        content_disposition = 'attachment; filename="{}"'.format(
+            filename
+        )
+    return OkResponse(content=oss_file["content"], headers={"content-disposition": content_disposition}, media_type=oss_file.get("content_type", None) or "application/octet-stream")
