@@ -89,7 +89,9 @@ dbmanager = DBManager(engine_uri=database_engine_uri)
 async def lifespan(app: FastAPI):
     print("***** App started *****")
     managers["chat"] = AutoGenChatManager(message_queue=message_queue)
-    # dbmanager.create_db_and_tables()
+    if not os.environ.get("UC_APP_CODE", None):
+        # 本地部署
+        dbmanager.create_db_and_tables()
 
     # add by ymc 
     oss_list_config = os.environ.get("OSS_LIST", None)

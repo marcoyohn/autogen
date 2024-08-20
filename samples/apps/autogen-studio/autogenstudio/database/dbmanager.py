@@ -40,10 +40,10 @@ class DBManager:
         """Create a new database and tables"""
         try:
             SQLModel.metadata.create_all(self.engine)
-            try:
-                init_db_samples(self)
-            except Exception as e:
-                logger.info("Error while initializing database samples: " + str(e))
+            # try:
+            #     init_db_samples(self)
+            # except Exception as e:
+            #     logger.info("Error while initializing database samples: " + str(e))
         except Exception as e:
             logger.info("Error while creating database tables:" + str(e))
 
