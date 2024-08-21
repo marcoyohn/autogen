@@ -8,6 +8,7 @@ import uuid
 import httpx
 import jwt
 from autogen.oss.abstract_oss_base import AbstractOss, UploadPolicy
+from urllib.parse import quote
 
 
 class DbOss(AbstractOss):
@@ -49,7 +50,7 @@ class DbOss(AbstractOss):
     def get_inner_download_url(self, file_key: str, expire_seconds: int) -> str:
         payload = {"op": "internal_download","key": file_key, "app_id": self._app_id, "exp": int(time.time()) + expire_seconds}
         sign = jwt.encode(payload, os.environ["WS_TOKEN_JWT_SECRET"], algorithm=os.environ["WS_TOKEN_JWT_ALGORITHM"])
-        return f"{self._internal_download_url}?key={file_key}&app_id={self._app_id}&sign={sign}" 
+        return f"{self._internal_download_url}?key={quote(file_key)}&app_id={self._app_id}&sign={sign}" 
 
     async def async_get_inner_download_url(self, file_key: str, expire_seconds: int) -> str:
         return self.get_inner_download_url(file_key, expire_seconds)
