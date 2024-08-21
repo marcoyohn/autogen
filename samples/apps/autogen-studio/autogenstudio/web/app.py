@@ -513,6 +513,8 @@ def block_run_session_workflow(context: Dict[str, Any], message: Message, sessio
         if notify_message_queue: 
             notify_message_queue.put(message, block=True)  
     try:
+        if message.role is None or message.role == "":
+            raise RuntimeError("role 不能为空")
         # add by ymc : 转换url为oss格式
         ensure_user_image_oss(message.content, context)
 
