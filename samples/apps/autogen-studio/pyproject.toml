@@ -34,7 +34,8 @@ dependencies = [
     "alembic",
     "loguru",
     "pyjwt",
-    "Pillow"
+    "Pillow",
+    "python-multipart"
 ]
 optional-dependencies = {web = ["fastapi", "uvicorn"], database = ["psycopg"]}
 
