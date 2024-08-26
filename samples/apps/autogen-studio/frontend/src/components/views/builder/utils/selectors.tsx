@@ -357,6 +357,12 @@ export const AgentTypeSelector = ({
       icon: <CodeBracketSquareIcon className={iconClass} />,
     },
     {
+      label: "Custom Agent: EnPerceptionToolsSolveAgent",
+      value: "en_perception.EnPerceptionToolsSolveAgent",
+      description: <>en perception tools solve task</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
+    {
       label: "Custom Agent: EnInkRecognitionAgent",
       value: "en_ink.EnInkRecognitionAgent",
       description: <>en ink recognition task</>,

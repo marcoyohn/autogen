@@ -13,7 +13,6 @@ from autogenstudio.utils.user_message import *
 
 
 
-ExamSolveTypeSymbol = Literal["solve", "math_expr"]
 
 class EnPerceptionLlmToolsSolveAgent(autogen.AssistantAgent):
     def __init__(self, message_processor=None, context=None, item_index: int = None, *args, **kwargs):
@@ -49,8 +48,7 @@ class EnPerceptionLlmToolsSolveAgent(autogen.AssistantAgent):
                 for item in message["content"]:
                     if isinstance(item, dict) and "image_url" in item:
                         oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
-                        image_btyes = resolve_user_image_bytes(oss_key, self.context)                        
-                        item["image_url"]["url"] = pil_to_data_uri(Image.open(BytesIO(image_btyes)).crop(tuple(crop)))                        
+                        item["image_url"]["url"] = resolve_user_image_date_uri(oss_key, self.context, crop=crop)                         
 
             new_messages.append(message)
         

@@ -1,29 +1,30 @@
 import copy
 import json
 import logging
+import os
+import sys
 import time
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import autogen
 from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.img_utils import get_image_data, pil_to_data_uri
 from autogen.agentchat.conversable_agent import ConversableAgent
 from autogen._pydantic import model_dump
 from autogenstudio.utils.user_message import *
+# 把当前路径添加到pythonpath中
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import prompt
 
-ExamSolveTypeSymbol = Literal["solve", "math_expr"]
-
-class ExamSolveAgent(autogen.AssistantAgent):
-    def __init__(self, message_processor=None, context=None, exam_solve_type: ExamSolveTypeSymbol=None, item_index: int = None,  *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class EnPerceptionToolsSolveAgent(autogen.AssistantAgent):
+    def __init__(self, message_processor=None, context=None, item_index: int = None, system_message: str = None, *args, **kwargs):
+        super().__init__(system_message=prompt.tools_solve_prompt, *args, **kwargs)
         self.message_processor = message_processor     
         self.context = context   
-        self.exam_solve_type = exam_solve_type
         self.item_index = item_index
         # Override the `generate_oai_reply`
-        self.replace_reply_func(ConversableAgent.generate_oai_reply, ExamSolveAgent.generate_oai_reply)
+        self.replace_reply_func(ConversableAgent.generate_oai_reply, EnPerceptionToolsSolveAgent.generate_oai_reply)
         self.replace_reply_func(
             ConversableAgent.a_generate_oai_reply,
-            ExamSolveAgent.a_generate_oai_reply,
+            EnPerceptionToolsSolveAgent.a_generate_oai_reply,
         )
 
     def generate_oai_reply(
@@ -40,8 +41,6 @@ class ExamSolveAgent(autogen.AssistantAgent):
         if messages is None:
             messages = self._oai_messages[sender]
         
-        automatic_box_item = {"item_index": self.item_index}
-        result = {"msg_type": f"agent_message_{self.exam_solve_type}_patch", "automatic_box_items":[automatic_box_item]}
         new_messages = []
         for message in messages:
             if isinstance(message, dict) and "content" in message and isinstance(message["content"], list):
@@ -49,7 +48,7 @@ class ExamSolveAgent(autogen.AssistantAgent):
                 for item in message["content"]:
                     if isinstance(item, dict) and "image_url" in item:
                         oss_key, crop = ensure_get_user_image_oss_key_and_crop(message)
-                        item["image_url"]["url"] = resolve_user_image_date_uri(oss_key, self.context, crop=crop)                          
+                        item["image_url"]["url"] = resolve_user_image_date_uri(oss_key, self.context, crop=crop)                        
 
             new_messages.append(message)
         
@@ -60,7 +59,7 @@ class ExamSolveAgent(autogen.AssistantAgent):
         context = messages[-1].pop("context", None)
         try:
             # TODO: #1143 handle token limit exceeded error            
-            response = client.create(context=context, messages=messages_with_b64_img)
+            response = client.create(context=context, messages=messages_with_b64_img, agent=self)
         except Exception as e:
             # retry
             logging.error(f"request oai error: {e}. will retry...")
@@ -73,17 +72,17 @@ class ExamSolveAgent(autogen.AssistantAgent):
             extracted_response = model_dump(extracted_response)
         elif extracted_response == "null":
             extracted_response = ""
+        try:
+            tools = json.loads(extracted_response)
+            if not isinstance(tools, List):
+                tools = []
+                logging.error(f"tools response not array: {extracted_response}")
+        except Exception as e:
+            tools = []
+            logging.error(f"tools response not json: {extracted_response}")
 
-        context_result = self.context["result"]
-        for box_item in context_result["automatic_box_items"]:
-            if box_item["item_index"] == self.item_index:
-                box_item[self.exam_solve_type] = extracted_response
-                break
-
-        automatic_box_item[self.exam_solve_type] = extracted_response
-
-        return True, json.dumps(result, ensure_ascii=False)
-
+        return True, {"busi_type": "agent_message_tool_resolve", "role": "assistant","content": json.dumps({"tools": tools}, ensure_ascii=False)}
+    
 
     def receive(
         self,

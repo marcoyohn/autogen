@@ -13,7 +13,6 @@ from autogenstudio.web.app import thread_pool_agent
 
 # 把当前路径添加到pythonpath中
 sys.path.append(path.dirname(path.abspath(__file__)))
-from autogen.agentchat.contrib.img_utils import get_pil_image, pil_to_data_uri
 import prompt
 from EnPerceptionTalAutomaticBoxAgent import EnPerceptionTalAutomaticBoxAgent
 from EnPerceptionCvteAutomaticBoxAgent import EnPerceptionCvteAutomaticBoxAgent
