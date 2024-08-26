@@ -4,7 +4,7 @@ import base64
 from io import BytesIO
 import re
 from typing import Any, Dict, List, Optional, Tuple, Union
-from PIL import Image
+from PIL import Image, ImageDraw
 import requests
 
 from autogen.agentchat.contrib.img_utils import convert_base64_to_data_uri, get_image_data, get_pil_image, pil_to_data_uri
@@ -72,10 +72,13 @@ def resolve_user_image_bytes(oss_key: str, context: Dict[str, Any], crop: List[i
         image_bytes = download_oss_file(oss_key)
         context[f"image_bytes_{oss_key}"] = image_bytes
     if crop and len(crop) > 0:
-        if len(crop) == 8:
-            image = Image.open(BytesIO(image_bytes)).crop((crop[0],crop[1],crop[4],crop[5]))
+        if len(crop) == 4:
+            image = Image.open(BytesIO(image_bytes)).crop(tuple(crop))            
         else:
-            image = Image.open(BytesIO(image_bytes)).crop(tuple(crop))
+            image = Image.open(BytesIO(image_bytes))
+            mask = Image.new('L', image.size, 0)
+            ImageDraw.Draw(mask).polygon(crop, outline=255, fill=255)
+            image = Image.composite(image, Image.new('RGB', image.size), mask)
         buffered = BytesIO()
         image.save(buffered, format="PNG")
         image_bytes = buffered.getvalue()
