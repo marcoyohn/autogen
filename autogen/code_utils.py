@@ -78,6 +78,10 @@ def content_str(content: Union[str, List[Union[UserMessageTextContentPart, UserM
             rst += item["text"]
         elif item["type"] == "image_url":
             rst += "<image>"
+        elif item["type"] == "object":
+            rst += "<object>"
+        elif item["type"] == "context":
+            rst += "<context>"
         else:
             raise ValueError(f"Wrong content format: unknown type {item['type']} within the content")
     return rst
