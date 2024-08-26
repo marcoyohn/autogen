@@ -15,6 +15,8 @@ from os import path
 from autogen.agentchat.contrib.img_utils import get_pil_image, pil_to_data_uri
 from autogen.cache.cache import Cache
 from autogenstudio.utils.user_message import *
+from autogenstudio.web.app import thread_pool_agent
+
 # 把当前路径添加到pythonpath中
 sys.path.append(path.dirname(path.abspath(__file__)))
 from ExamAutomaticBoxAgent import ExamAutomaticBoxAgent
@@ -23,7 +25,6 @@ from ExamSolveAgent import ExamSolveAgent
 import util.prompt
 
 class ExamPreTreatAgent(autogen.ConversableAgent):
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix="ThreadPoolExecutor_ExamPreTreat")
     
     def __init__(self, message_processor=None, context=None, llm_config=None, *args, **kwargs):
         super().__init__(llm_config=llm_config, *args, **kwargs)
@@ -79,12 +80,12 @@ class ExamPreTreatAgent(autogen.ConversableAgent):
             # call exam solve agent     
             solve_agent = ExamSolveAgent(name="en_exam_solve_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="solve", llm_config=self.exam_solve_llm_config, item_index=box_item["item_index"])
             solve_agent.update_system_message(util.prompt.exam_solve_prompt)
-            futures.append(ExamPreTreatAgent.executor.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), solve_agent, message))       
+            futures.append(thread_pool_agent.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), solve_agent, message))       
             # self.initiate_chat(self.solve_agent, message=message, max_turns=1)
             # call exam math expr agent
             math_expr_agent = ExamSolveAgent(name="en_exam_math_expr_assistant", message_processor=self.message_processor, context=self.context, exam_solve_type="math_expr", llm_config=self.exam_solve_llm_config, item_index=box_item["item_index"])
             math_expr_agent.update_system_message(util.prompt.exam_math_prompt)
-            futures.append(ExamPreTreatAgent.executor.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), math_expr_agent, message))
+            futures.append(thread_pool_agent.submit(lambda agent, msg:self.initiate_chat(agent, message=msg, max_turns=1), math_expr_agent, message))
             # self.initiate_chat(self.math_expr_agent, message=message, max_turns=1)
 
         # 获取已完成的任务结果

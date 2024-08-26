@@ -8,6 +8,8 @@ from autogen.agentchat.agent import Agent
 import autogen
 from autogen.agentchat.conversable_agent import ConversableAgent
 from autogenstudio.utils.user_message import *
+from autogenstudio.web.app import thread_pool_agent
+
 
 # 把当前路径添加到pythonpath中
 sys.path.append(path.dirname(path.abspath(__file__)))
@@ -20,7 +22,6 @@ from utils.function_call import *
 
 
 class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix="ThreadPoolExecutor_EnPerceptionRecognition")
 
     def __init__(self, message_processor=None, context=None, llm_config=None, *args, **kwargs):
         super().__init__(llm_config=llm_config, *args, **kwargs)
@@ -63,7 +64,7 @@ class EnPerceptionRecognitionAgent(autogen.ConversableAgent):
                     }
             # call exam solve agent     
             tools_solve_agent = EnPerceptionLlmToolsSolveAgent(name="en_perception_recognition_assistant_tools_solve", message_processor=self.message_processor, context=self.context, llm_config=self.llm_config, system_message=prompt.tools_solve_prompt, item_index=box_item["item_index"])
-            futures.append(EnPerceptionRecognitionAgent.executor.submit(lambda agent, message, box_item: self.run_llm_tools_solve(agent, message, box_item), tools_solve_agent, message, box_item))       
+            futures.append(thread_pool_agent.submit(lambda agent, message, box_item: self.run_llm_tools_solve(agent, message, box_item), tools_solve_agent, message, box_item))       
 
         # 获取已完成的任务结果
         for future in concurrent.futures.as_completed(futures):

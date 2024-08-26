@@ -39,6 +39,7 @@ from starlette.authentication import requires
 from starlette.requests import Request
 
 thread_pool= ThreadPoolExecutor(max_workers=200)
+thread_pool_agent= ThreadPoolExecutor(max_workers=200)
 
 managers = {"chat": None}  # manage calls to autogen
 # Create thread-safe queue for messages between api thread and autogen threads

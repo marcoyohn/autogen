@@ -356,6 +356,12 @@ export const AgentTypeSelector = ({
       description: <>en perception geometry create task</>,
       icon: <CodeBracketSquareIcon className={iconClass} />,
     },
+    {
+      label: "Custom Agent: EnInkRecognitionAgent",
+      value: "en_ink.EnInkRecognitionAgent",
+      description: <>en ink recognition task</>,
+      icon: <CodeBracketSquareIcon className={iconClass} />,
+    },
   ];
   const [selectedAgentType, setSelectedAgentType] = React.useState<
     string | null

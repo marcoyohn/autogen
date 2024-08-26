@@ -3,7 +3,7 @@
 import base64
 from io import BytesIO
 import re
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from PIL import Image
 import requests
 
@@ -80,3 +80,18 @@ def resolve_user_image_bytes(oss_key: str, context: Dict[str, Any], crop: List[i
         image.save(buffered, format="PNG")
         image_bytes = buffered.getvalue()
     return image_bytes
+
+def try_get_from_context(content: Union[str, List[Dict]], context: Dict[str, Any]) -> Optional[Any]:
+    # content 格式  
+    # {
+    # 	"type": "context", "context": "{context_key}"
+    # } 
+    if isinstance(content, str):
+        return None
+    context_keys: List[Dict] = [item["context"] for item in content if item["type"] == "context"]
+    context_len = len(context_keys)
+    if context_len == 0:
+        return None
+    if context_len > 1:
+        raise RuntimeError('只支持传递一个context')
+    return context.get(context_keys[0], None)
