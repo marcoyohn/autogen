@@ -52,6 +52,9 @@ class EnInkRecognitionAgent(autogen.ConversableAgent):
             batch_size = 0
             total_index = len(block["items"]) - 1
             for i, item in enumerate(block["items"]):
+                if item["type"] == "other":
+                    # 忽略other：干扰符号
+                    continue
                 batch_size = batch_size + 1                
                 if batch_items_type is None:
                     batch_items_type = item["type"]
@@ -59,7 +62,7 @@ class EnInkRecognitionAgent(autogen.ConversableAgent):
 
                 if batch_items_type != item["type"] or batch_size > batch_size_limit:
                     #处理
-                    futures.append(self._run_ocr_agent(batch_items))
+                    futures.append(self._run_ocr_agent(batch_items, batch_items_type))
                     
                     batch_items_type = None
                     batch_items = {"block_index": block_index, "items": []}
@@ -68,9 +71,9 @@ class EnInkRecognitionAgent(autogen.ConversableAgent):
                 item_strokes = {}
                 for strokes_id in item["strokes_id_list"]:
                     item_strokes[strokes_id] = input_strokers[strokes_id]
-                batch_items["items"].append({"item_index": item["item_index"], "type": item["type"], "strokes": item_strokes})
+                batch_items["items"].append({"item_index": item["item_index"], "strokes": item_strokes})
                 if i == total_index:                        
-                    futures.append(self._run_ocr_agent(batch_items))
+                    futures.append(self._run_ocr_agent(batch_items, batch_items_type))
                     
                 
         for future in concurrent.futures.as_completed(futures):
@@ -78,12 +81,12 @@ class EnInkRecognitionAgent(autogen.ConversableAgent):
 
         return True, {"role": "assistant","content": "TERMINATE"}
 
-    def _run_ocr_agent(self, batch_items: Dict):
+    def _run_ocr_agent(self, batch_items: Dict, batch_items_type: str):
         context_key = str(uuid.uuid4())
         self.context[context_key] = batch_items
         message = {"role": "user", "content": [{"type": "context", "context": context_key}]}
         # call exam solve agent     
-        ocr_agent = EnInkRecognitionOcrAgent(name="en_ink_recognition_assistant_ocr", message_processor=self.message_processor, context=self.context, llm_config=self.llm_config)
+        ocr_agent = EnInkRecognitionOcrAgent(name="en_ink_recognition_assistant_ocr", message_processor=self.message_processor, context=self.context, ocr_type=batch_items_type, llm_config=self.llm_config)
         return thread_pool_agent.submit(lambda agent, message: self.initiate_chat(agent, message=message, max_turns=1), ocr_agent, message)
         
 
