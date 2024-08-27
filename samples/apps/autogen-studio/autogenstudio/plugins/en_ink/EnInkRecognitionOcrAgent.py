@@ -117,7 +117,7 @@ class EnInkRecognitionOcrAgent(autogen.AssistantAgent):
 
         content_json_str = json.dumps({
             "blocks": [{"block_index": input_strokers["block_index"], "items": result_item}]
-        })
+        }, ensure_ascii=False)
         
         return True, {"busi_type": "agent_message_structured_item_detail_patch", "role": "assistant","content": content_json_str}
 

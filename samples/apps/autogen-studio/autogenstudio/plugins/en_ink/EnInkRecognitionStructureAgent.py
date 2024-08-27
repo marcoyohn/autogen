@@ -106,7 +106,7 @@ class EnInkRecognitionStructureAgent(autogen.AssistantAgent):
         
         content_json_str = json.dumps({
             "blocks": blocks
-        })
+        }, ensure_ascii=False)
         
         return True, {"busi_type": "agent_message_structured", "role": "assistant","content": content_json_str}
     
