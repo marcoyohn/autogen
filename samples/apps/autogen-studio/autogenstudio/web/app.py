@@ -124,7 +124,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[        
-        "none:http://localhost:8000",
+        "*",
     ],
     allow_origin_regex = r"(http|https)://(.+\.seewo\.com|.+\.cvte\.com|localhost|127\.0\.0\.1)(:\d+|)",
     allow_credentials=True,
