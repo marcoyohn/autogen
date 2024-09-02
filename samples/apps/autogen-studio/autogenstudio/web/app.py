@@ -458,7 +458,6 @@ async def create_session(session: Session, request: Request):
 
 
 @api.delete("/sessions/delete")
-@requires("admin") 
 async def delete_session(session_id: int, request: Request):
     """Delete a session"""
     filters = {"id": session_id, "user_id": request.user.identity}
